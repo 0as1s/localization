@@ -3,8 +3,14 @@ import tensorflow as tf
 import numpy as np
 
 DISTANCE_WEIGHTING = 'ONLY_NEAR'
-LEARNING_RATE = 0.001
-EPOCH = 10
+LEARNING_RATE = 0.0001
+DISCOUNT = 1
+EPOCH = 50
+
+
+config = tf.ConfigProto(
+    device_count={'GPU': 0}
+)
 
 
 class Model(object):
@@ -37,41 +43,50 @@ class Model(object):
         self.y_range = y_range
         self.n_nodes = len(self.nodes)
 
-        self.activation = None
-        self.weights, self.input_weights, self.target_index = self.weigting_distances()
+        self.activation = tf.nn.sigmoid
+        self.weights, self.input_weights, self.target_index, self.discounts = self.weigting_distances()
 
         self.dis_to_pred = self.distances[self.target_index]
 
-        self.sess = tf.Session()
-        self.x = tf.placeholder(tf.float64, shape=[1, 4 * self.n_nodes])
+        self.sess = tf.Session(config=config)
+        self.x = tf.placeholder(tf.float32, shape=[1, 4 * self.n_nodes])
 
         self.dense1 = tf.layers.dense(
             self.x, 4 * self.n_nodes, activation=self.activation)
+        # self.bn1 = tf.contrib.layers.batch_norm(
+        #     self.dense1, center=True, scale=True)
+
         self.dense2 = tf.layers.dense(
             self.dense1, 4 * self.n_nodes, activation=self.activation)
+        # self.bn2 = tf.contrib.layers.batch_norm(
+        #     self.dense2, center=True, scale=True)
+
         self.dense3 = tf.layers.dense(
             self.dense2, 4 * self.n_nodes, activation=self.activation)
+        # self.bn3 = tf.contrib.layers.batch_norm(
+        #     self.dense3, center=True, scale=True)
+
         self.dense4 = tf.layers.dense(
-            self.dense3, 4 * self.n_nodes, activation=self.activation)
+            self.dense3,  4 * self.n_nodes, activation=self.activation)
 
-        self.pos = tf.layers.dense(self.dense4, 2)
+        self.x_y = tf.layers.dense(self.dense4, 2)
 
-        self.xs = tf.placeholder(tf.float64, shape=len(self.target_index))
-        self.ys = tf.placeholder(tf.float64, shape=len(self.target_index))
+        self.pos = tf.abs(self.x_y)
+
+        self.xs = tf.placeholder(tf.float32, shape=len(self.target_index))
+        self.ys = tf.placeholder(tf.float32, shape=len(self.target_index))
 
         self.pred_distances = tf.sqrt(
             tf.square(self.xs - self.pos[0][0]) +
             tf.square(self.ys - self.pos[0][1]))
 
-        # self.pred_distances = tf.sqrt((
-        #     self.xs - self.pos[0][0])**2 + (self.ys - self.pos[0][1])**2)
-        self.true_distances = tf.constant(self.dis_to_pred, dtype=tf.float64)
+        self.true_distances = tf.constant(self.dis_to_pred, dtype=tf.float32)
+
+        self.discounts = tf.constant(self.discounts, dtype=tf.float32)
+        self.discounted_distances = self.discounts*self.true_distances
 
         self.loss = tf.losses.mean_squared_error(
-            self.true_distances, self.pred_distances, self.weights)  # 在指定loss时可以指定weights
-
-        # self.loss = tf.reduce_mean(
-        #     tf.square(self.true_distances - self.pred_distances))
+            self.discounted_distances, self.pred_distances, self.weights)  # 在指定loss时可以指定weights
 
         self.optimizer = tf.train.AdamOptimizer(learning_rate=LEARNING_RATE)
         self.train_step = self.optimizer.minimize(self.loss)
@@ -81,21 +96,28 @@ class Model(object):
 
     def weigting_distances(self):
         goal_weights = []
-        input_weights = list(map(lambda x: 1.0 / x, self.hops))
+        input_weights = list(map(lambda x: 1.0 / (x+1), self.hops))
         for i in self.beacon_index:
             if i in self.index:
                 input_weights[i] = 3
         index = []
         if DISTANCE_WEIGHTING == "ONLY_NEAR":
             for i, d in enumerate(self.distances):
-                if self.hops[i] in (1, ):
+                if self.hops[i] in (1, 2, ):
                     goal_weights.append(1/self.hops[i])
                     index.append(i)
+            # index = index[:2]
+            # goal_weights = goal_weights[: 2]
             for i in self.beacon_index:
-                goal_weights.append(3)
+                if self.hops[i] == -1:
+                    continue
+                goal_weights.append(1/self.hops[i])
                 index.append(i)
         goal_weights = list(map(lambda x: x / sum(goal_weights), goal_weights))
-        return goal_weights, input_weights, index
+        discounts = []
+        for i in index:
+            discounts.append(DISCOUNT**(self.hops[i]-1))
+        return goal_weights, input_weights, index, discounts
 
     def train_and_update(self, f):
         x_input = np.array([
@@ -123,7 +145,6 @@ class Model(object):
                         self.xs: target_nodes[:, 0],
                         self.ys: target_nodes[:, 1]
                     })
-        # print(loss)
         true_pos = self.nodes[self.i]
         true_nodes = self.true_nodes[self.target_index]
         false_nodes = self.nodes[self.target_index]
@@ -164,7 +185,7 @@ class Model(object):
                 self.dis(pos[0][0], pos[0][1], false_nodes[:, 0],
                          false_nodes[:, 1])))
         f.write('\n========================\n')
-        return pos[0]
+        return pos[0], loss
 
     def upgrade_nodes(self, nodes):
         # print(self.nodes.shape)
