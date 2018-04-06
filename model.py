@@ -3,7 +3,7 @@ import tensorflow as tf
 import numpy as np
 
 DISTANCE_WEIGHTING = 'ONLY_NEAR'
-LEARNING_RATE = 0.0001
+LEARNING_RATE = 0.001
 DISCOUNT = 1
 EPOCH = 50
 
@@ -25,10 +25,8 @@ class Model(object):
     # label可以设置为加权的距离或者只有直达的点的距离
     # 对于预测距离与跳数不符的惩罚
     # 把loss作为权重
-    def __init__(self, nodes, distances, hops, x_range, y_range, beacon_index,
-                 true_nodes, j):
+    def __init__(self, nodes, distances, hops, x_range, y_range, beacon_index, nodes_map):
 
-        self.true_nodes = true_nodes
         self.beacon_index = beacon_index
         self.index = []
         for i, h in enumerate(hops):
@@ -42,6 +40,7 @@ class Model(object):
         self.x_range = x_range
         self.y_range = y_range
         self.n_nodes = len(self.nodes)
+        self.nodes_map = nodes_map
 
         self.activation = tf.nn.sigmoid
         self.weights, self.input_weights, self.target_index, self.discounts = self.weigting_distances()
@@ -91,7 +90,6 @@ class Model(object):
         self.optimizer = tf.train.AdamOptimizer(learning_rate=LEARNING_RATE)
         self.train_step = self.optimizer.minimize(self.loss)
 
-        self.i = j
         tf.global_variables_initializer().run(session=self.sess)
 
     def weigting_distances(self):
@@ -145,46 +143,7 @@ class Model(object):
                         self.xs: target_nodes[:, 0],
                         self.ys: target_nodes[:, 1]
                     })
-        true_pos = self.nodes[self.i]
-        true_nodes = self.true_nodes[self.target_index]
-        false_nodes = self.nodes[self.target_index]
-        f.write(str(self.i))
-        f.write('\n')
-        f.write("%f, %f" % (pos[0][0], pos[0][1]))
-        f.write('\n')
-        f.write("%f, %f" % (self.true_nodes[self.i][0],
-                            self.true_nodes[self.i][1]))
-        f.write('\n')
-        f.write(str(self.target_index))
-        f.write('\n')
-        f.write(str(self.nodes[self.target_index, 0]))
-        f.write('\n')
-        f.write(str(self.true_nodes[self.target_index, 0]))
-        f.write('\n')
 
-        f.write(str(self.nodes[self.target_index, 1]))
-        f.write('\n')
-        f.write(str(self.true_nodes[self.target_index, 1]))
-        f.write('\n')
-
-        f.write(str(loss))
-        f.write('\n')
-        f.write(str(distance1))
-        f.write('\n')
-
-        f.write(
-            str(
-                self.dis(true_pos[0], true_pos[1], true_nodes[:, 0],
-                         true_nodes[:, 1])))
-        f.write('\n')
-        f.write(str(distance2))
-        f.write('\n')
-
-        f.write(
-            str(
-                self.dis(pos[0][0], pos[0][1], false_nodes[:, 0],
-                         false_nodes[:, 1])))
-        f.write('\n========================\n')
         return pos[0], loss
 
     def upgrade_nodes(self, nodes):
@@ -192,8 +151,9 @@ class Model(object):
         self.nodes = nodes[self.index]
 
     def partial_update(self, i, x, y):
-        self.nodes[i][0] = x
-        self.nodes[i][1] = y
+        if i in self.nodes_map.keys():
+            self.nodes[self.nodes_map[i]][0] = x
+            self.nodes[self.nodes_map[i]][1] = y
 
     def dis(self, x, y, xs, ys):
         return np.sqrt(np.square(xs - x) + np.square(ys - y))

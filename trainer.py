@@ -6,6 +6,7 @@ from matplotlib import pyplot as plt
 from sympy import symbol, solve
 
 timesteps = 50
+hops_limit = 3
 
 
 # 可以比较离线训练+在线测试/在线训练+在线测试/离线训练+迁移学习+在线测试
@@ -13,6 +14,7 @@ timesteps = 50
 class Trainer(object):
     def __init__(self, distances, hops, x_range, y_range, beacon_index,
                  beacons, nodes):
+
         self.distances = distances
         self.beacon_index = list(beacon_index)
         self.beacons = beacons
@@ -26,14 +28,43 @@ class Trainer(object):
         self.hops = hops
 
         self.initialize_nodes()
+        self.initialize_models()
 
+    def initialize_models(self):
+        nodes_index = list(range(self.n_nodes))
+        for i in self.beacon_index:
+            nodes_index.remove(i)
+        # hops = np.copy(self.hops)
+        # hops[hops == -1] = 999
+        # nodes_index = np.argsort(np.sum(hops[:, self.beacon_index], axis=1))
         for i in range(self.n_nodes):
-            m = Model(self.nodes, distances[i], hops[i], x_range, y_range,
-                      beacon_index, self.true_nodes, i)
-            self.models.append(m)
+            if i in nodes_index:
+                sorted_index = []
+                # 建立一个全局nodes与单个node需要的nodes的映射
+                nodes_map = {}
+                for hops in range(1, hops_limit + 1):
+                    for i, h in enumerate(self.hops[i]):
+                        if h == hops:
+                            nodes_map[i] = len(sorted_index)
+                            sorted_index.append(i)
 
-        for i in beacon_index:
-            self.models[i] = None
+                hops = list(self.hops[i, sorted_index])
+                dis = list(self.distances[i, sorted_index])
+                nodes = list(self.nodes[sorted_index])
+                # 将beacon放在最后三个点
+                for b in self.beacon_index:
+                    hops.append(self.hops[i][b])
+                    dis.append(self.distances[i][b])
+                    nodes.append(self.beacons[self.beacon_index.index(b)])
+                hops = np.array(hops)
+                dis = np.array(dis)
+                nodes = np.array(nodes)
+
+                beacon_index = [len(sorted_index) + i for i in range(0, 3)]
+                self.models.append(Model(nodes, dis, hops, self.x_range, self.y_range, beacon_index, nodes_map))
+
+            else:
+                self.models.append(None)
 
     # 随机生成，后续可以优化为先pre_train，可能会更容易收敛到解
     def initialize_nodes(self):
@@ -50,8 +81,6 @@ class Trainer(object):
         #         self.nodes[i, 0], self.nodes[i, 1] = self.pos(xs, ys, ds)
         for i in range(len(self.beacons)):
             self.nodes[self.beacon_index[i]] = self.beacons[i]
-
-        # self.plot()
 
     # 是否可以让n_nodes个model共享一部分权值, 比如后面的全连接层
     # 如果要共享权值，怎么解决权值在节点间交换的问题
@@ -78,6 +107,7 @@ class Trainer(object):
             print(loss)
             print(dis_loss)
             print("==========")
+            # self.plot()
             f2.write(str(loss))
             f.write('\n')
         f.close()
