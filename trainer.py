@@ -1,12 +1,12 @@
 # encoding=utf-8
 import numpy as np
 
-from model import Model
+from model import Model, DISCOUNT
 from matplotlib import pyplot as plt
 from sympy import symbol, solve
 
 timesteps = 50
-hops_limit = 2
+hops_limit = 3
 
 
 # 可以比较离线训练+在线测试/在线训练+在线测试/离线训练+迁移学习+在线测试
@@ -34,9 +34,9 @@ class Trainer(object):
         nodes_index = list(range(self.n_nodes))
         for i in self.beacon_index:
             nodes_index.remove(i)
-        # hops = np.copy(self.hops)
-        # hops[hops == -1] = 999
-        # nodes_index = np.argsort(np.sum(hops[:, self.beacon_index], axis=1))
+        hops = np.copy(self.hops)
+        hops[hops == -1] = 999
+        nodes_index = np.argsort(np.sum(hops[:, self.beacon_index], axis=1))
         for i in range(self.n_nodes):
             if i in nodes_index:
                 sorted_index = []
@@ -68,17 +68,19 @@ class Trainer(object):
 
     # 随机生成，后续可以优化为先pre_train，可能会更容易收敛到解
     def initialize_nodes(self):
-        # xs = self.beacons[:, 0]
-        # ys = self.beacons[:, 1]
+        xs = self.beacons[:, 0]
+        ys = self.beacons[:, 1]
         self.nodes = np.random.random((self.n_nodes, 2))
         self.nodes[:, 0] *= self.x_range
         self.nodes[:, 1] *= self.y_range
-        # for i in range(self.n_nodes):
-        #     ds = self.distances[i, self.beacon_index]
-        #     if i in self.beacon_index:
-        #         self.nodes[i] = self.beacons[self.beacon_index.index(i)]
-        #     else:
-        #         self.nodes[i, 0], self.nodes[i, 1] = self.pos(xs, ys, ds)
+        for i in range(self.n_nodes):
+            hops = self.hops[i, self.beacon_index]
+            ds = self.distances[i, self.beacon_index]
+            ds = [ds[j]*(DISCOUNT**(hops[j]-1)) for j in range(len(ds))]
+            if i in self.beacon_index:
+                self.nodes[i] = self.beacons[self.beacon_index.index(i)]
+            else:
+                self.nodes[i, 0], self.nodes[i, 1] = self.pos(xs, ys, ds)
         for i in range(len(self.beacons)):
             self.nodes[self.beacon_index[i]] = self.beacons[i]
 

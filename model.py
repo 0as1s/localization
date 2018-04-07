@@ -4,7 +4,7 @@ import numpy as np
 
 DISTANCE_WEIGHTING = 'ONLY_NEAR'
 LEARNING_RATE = 0.001
-DISCOUNT = 1
+DISCOUNT = 0.95
 EPOCH = 50
 
 
@@ -101,15 +101,15 @@ class Model(object):
         index = []
         if DISTANCE_WEIGHTING == "ONLY_NEAR":
             for i, d in enumerate(self.distances):
-                if self.hops[i] in (1, ):
-                    goal_weights.append(1/self.hops[i])
+                if self.hops[i] in (1, 2, 3):
+                    goal_weights.append(0.4 ** (self.hops[i] - 1))
                     index.append(i)
             # index = index[:2]
             # goal_weights = goal_weights[: 2]
             for i in self.beacon_index:
                 if self.hops[i] == -1:
                     continue
-                goal_weights.append(1/self.hops[i])
+                goal_weights.append(0.4 ** (self.hops[i] - 1))
                 index.append(i)
         goal_weights = list(map(lambda x: x / sum(goal_weights), goal_weights))
         discounts = []
