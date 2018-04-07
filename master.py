@@ -38,8 +38,8 @@ class Master(object):
             ys = self.nodes[i, beacon_index, 1]
             if not 0.5 < (((ys[2]-ys[1]) / (xs[2]-xs[1]))/((ys[1] - ys[0])/(xs[1]-xs[0]))) < 1.5:
                 break
-        print(beacon_index)
         beacon_index = [10, 15, 16]
+        print(beacon_index)
         beacons = self.nodes[i][beacon_index]
         trainer = Trainer(
             self.distances[i], self.hops[i], x_range, y_range, beacon_index, beacons, self.nodes[i])
