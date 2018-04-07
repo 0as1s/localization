@@ -6,7 +6,7 @@ from matplotlib import pyplot as plt
 from sympy import symbol, solve
 
 timesteps = 50
-hops_limit = 3
+hops_limit = 2
 
 
 # 可以比较离线训练+在线测试/在线训练+在线测试/离线训练+迁移学习+在线测试
@@ -43,10 +43,10 @@ class Trainer(object):
                 # 建立一个全局nodes与单个node需要的nodes的映射
                 nodes_map = {}
                 for hops in range(1, hops_limit + 1):
-                    for i, h in enumerate(self.hops[i]):
+                    for j, h in enumerate(self.hops[i]):
                         if h == hops:
-                            nodes_map[i] = len(sorted_index)
-                            sorted_index.append(i)
+                            nodes_map[j] = len(sorted_index)
+                            sorted_index.append(j)
 
                 hops = list(self.hops[i, sorted_index])
                 dis = list(self.distances[i, sorted_index])

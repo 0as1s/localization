@@ -101,7 +101,7 @@ class Model(object):
         index = []
         if DISTANCE_WEIGHTING == "ONLY_NEAR":
             for i, d in enumerate(self.distances):
-                if self.hops[i] in (1, 2, ):
+                if self.hops[i] in (1, ):
                     goal_weights.append(1/self.hops[i])
                     index.append(i)
             # index = index[:2]
@@ -115,6 +115,8 @@ class Model(object):
         discounts = []
         for i in index:
             discounts.append(DISCOUNT**(self.hops[i]-1))
+        # print(len(goal_weights))
+        # print(self.distances[index])
         return goal_weights, input_weights, index, discounts
 
     def train_and_update(self, f):
