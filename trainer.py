@@ -5,7 +5,7 @@ from model import Model, DISCOUNT
 from matplotlib import pyplot as plt
 from sympy import symbol, solve
 
-timesteps = 50
+timesteps = 500
 hops_limit = 3
 
 
@@ -13,7 +13,7 @@ hops_limit = 3
 # 考虑加入降噪层
 class Trainer(object):
     def __init__(self, distances, hops, x_range, y_range, beacon_index,
-                 beacons, nodes):
+                 beacons, nodes, i):
 
         self.distances = distances
         self.beacon_index = list(beacon_index)
@@ -29,6 +29,7 @@ class Trainer(object):
 
         self.initialize_nodes()
         self.initialize_models()
+        self.i = i
 
     def initialize_models(self):
         nodes_index = list(range(self.n_nodes))
@@ -42,7 +43,7 @@ class Trainer(object):
                 sorted_index = []
                 # 建立一个全局nodes与单个node需要的nodes的映射
                 nodes_map = {}
-                for hops in range(1, hops_limit + 1):
+                for hops in range(0, hops_limit + 1):
                     for j, h in enumerate(self.hops[i]):
                         if h == hops:
                             nodes_map[j] = len(sorted_index)
@@ -84,37 +85,39 @@ class Trainer(object):
         for i in range(len(self.beacons)):
             self.nodes[self.beacon_index[i]] = self.beacons[i]
 
-    # 是否可以让n_nodes个model共享一部分权值, 比如后面的全连接层
+    # 是否可以让n_nodes个model共享一部分权f值, 比如后面的全连接层
     # 如果要共享权值，怎么解决权值在节点间交换的问题
     def train(self):
-        f = open('input_x.txt', 'w')
-        f2 = open('loss.txt', 'w')
         new_nodes = np.zeros((self.n_nodes, 2))
+
         for t in range(timesteps):
             # 这里如果是个python原生的数组的话，传入的是值，但是如果是一个numpy数组的话，传入的是引用，所以此处需要一个新的数组才缓存值
             dis_loss = 0
-            for j in range(self.n_nodes):
-                i = np.random.randint(self.n_nodes)
-                if i not in self.beacon_index:
-                    (x, y), dis_loss = self.models[i].train_and_update(f)
-                    for m in self.models:
-                        if m:
-                            m.partial_update(i, x, y)
-                    new_nodes[i][0] = np.min([np.max([x, 0.0]), self.x_range])
-                    new_nodes[i][1] = np.min([np.max([y, 0.0]), self.y_range])
-                else:
-                    new_nodes[i] = self.beacons[self.beacon_index.index(i)]
+            i = np.random.randint(self.n_nodes)
+            if i not in self.beacon_index:
+                (x, y), dis_loss = self.models[i].train_and_update()
+                for m in self.models:
+                    if m:
+                        m.partial_update(i, x, y)
+                new_nodes[i][0] = np.min([np.max([x, 0.0]), self.x_range])
+                new_nodes[i][1] = np.min([np.max([y, 0.0]), self.y_range])
+            else:
+                new_nodes[i] = self.beacons[self.beacon_index.index(i)]
 
-            self.nodes = new_nodes
-            loss = np.mean(np.abs(self.nodes - self.true_nodes))
-            print(loss)
-            print(dis_loss)
-            print("==========")
-            # self.plot()
-            f2.write(str(loss))
-            f.write('\n')
-        f.close()
-        self.plot()
+            # if(t % 100 == 0):
+            #     self.nodes = new_nodes
+            #     loss1 = np.mean(np.sqrt((self.nodes[:, 0] - self.true_nodes[:, 0]) ** 2 + (self.nodes[:, 1] - self.true_nodes[:, 1]) ** 2))
+
+                # loss2 = np.mean(np.abs(self.nodes - self.true_nodes))
+                # print(loss1)
+                # print(loss2)
+                # print(dis_loss)
+                # print("==========")
+        self.nodes = new_nodes
+        loss1 = np.mean(np.sqrt((self.nodes[:, 0] - self.true_nodes[:, 0]) ** 2 + (self.nodes[:, 1] - self.true_nodes[:, 1]) ** 2))
+
+        self.plot(show=False)
+        return loss1
 
     def pos(self, xs, ys, ds):
         x1, x2, x3 = list(xs)
@@ -141,7 +144,7 @@ class Trainer(object):
             ) * self.y_range
         return rx, ry
 
-    def plot(self):
+    def plot(self, show=True):
         fig, ax = plt.subplots()
 
         ax.scatter(
@@ -166,4 +169,5 @@ class Trainer(object):
         for i in range(len(self.nodes)):
             ax.annotate(str(i), (self.nodes[i, 0], self.nodes[i, 1]))
             ax.annotate(str(i), (self.true_nodes[i, 0], self.true_nodes[i, 1]))
-        plt.show()
+        fig.savefig(str(i)+str(self.beacon_index)+'.png')
+        # plt.show()

@@ -68,9 +68,9 @@ class Model(object):
         self.dense4 = tf.layers.dense(
             self.dense3,  4 * self.n_nodes, activation=self.activation)
 
-        self.x_y = tf.layers.dense(self.dense4, 2)
+        self.noisy = tf.constant([[0.0 for i in range(self.n_nodes)]])
 
-        self.pos = tf.abs(self.x_y)
+        self.pos = tf.layers.dense(self.dense4, 2)
 
         self.xs = tf.placeholder(tf.float32, shape=len(self.target_index))
         self.ys = tf.placeholder(tf.float32, shape=len(self.target_index))
@@ -115,11 +115,9 @@ class Model(object):
         discounts = []
         for i in index:
             discounts.append(DISCOUNT**(self.hops[i]-1))
-        # print(len(goal_weights))
-        # print(self.distances[index])
         return goal_weights, input_weights, index, discounts
 
-    def train_and_update(self, f):
+    def train_and_update(self):
         x_input = np.array([
             self.nodes[:, 0], self.nodes[:, 1], self.distances,
             self.input_weights
@@ -147,10 +145,6 @@ class Model(object):
                     })
 
         return pos[0], loss
-
-    def upgrade_nodes(self, nodes):
-        # print(self.nodes.shape)
-        self.nodes = nodes[self.index]
 
     def partial_update(self, i, x, y):
         if i in self.nodes_map.keys():
