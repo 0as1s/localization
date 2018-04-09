@@ -26,7 +26,7 @@ class Master(object):
 
         # 每张图传递给每个trainer
         i = np.random.randint(len(self.distances))
-        # i = 37
+        # i = 7
         print(i)
         beacon_index = sorted(np.random.choice(
             len(self.distances[i]), 3, replace=False))
@@ -39,7 +39,7 @@ class Master(object):
         #     if not 0.5 < (((ys[2]-ys[1]) / (xs[2]-xs[1]))/((ys[1] - ys[0])/(xs[1]-xs[0]))) < 1.5:
         #         break
 
-        # beacon_index = [0, 6, 12]
+        # beacon_index = [4, 11, 19]
         print(beacon_index)
         beacons = self.nodes[i][beacon_index]
         trainer = Trainer(

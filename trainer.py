@@ -36,7 +36,7 @@ class Trainer(object):
             nodes_index.remove(i)
         hops = np.copy(self.hops)
         hops[hops == -1] = 999
-        nodes_index = np.argsort(np.sum(hops[:, self.beacon_index], axis=1))
+        nodes_index = np.argsort(np.mean(hops[:, self.beacon_index], axis=1))
         for i in range(self.n_nodes):
             if i in nodes_index:
                 sorted_index = []
@@ -89,11 +89,12 @@ class Trainer(object):
     def train(self):
         f = open('input_x.txt', 'w')
         f2 = open('loss.txt', 'w')
+        new_nodes = np.zeros((self.n_nodes, 2))
         for t in range(timesteps):
             # 这里如果是个python原生的数组的话，传入的是值，但是如果是一个numpy数组的话，传入的是引用，所以此处需要一个新的数组才缓存值
-            new_nodes = np.zeros((self.n_nodes, 2))
             dis_loss = 0
-            for i in range(self.n_nodes):
+            for j in range(self.n_nodes):
+                i = np.random.randint(self.n_nodes)
                 if i not in self.beacon_index:
                     (x, y), dis_loss = self.models[i].train_and_update(f)
                     for m in self.models:
