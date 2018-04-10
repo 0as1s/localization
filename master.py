@@ -9,15 +9,12 @@ from datetime import datetime
 # batch_size = 20
 x_range = 10
 y_range = 10
-TEST_TIMES = 3
-TEST_PER_IMAGE = 3
+TEST_TIMES = 2
+TEST_PER_IMAGE = 2
 
 
 class Master(object):
     def __init__(self):
-        # self.nodes = np.load('nodes.npy')
-        # self.distances = np.load('distances.npy')
-        # self.hops = np.load('hops.npy')
 
         self.nodes = np.loadtxt('point.data')
         self.distances = np.loadtxt('distance.data')
@@ -40,20 +37,22 @@ class Master(object):
         while(i in self.blacklist):
             i = np.random.randint(len(self.distances))
 
-        # print(i)
+        i = 4
+        print(i)
         for j in range(TEST_PER_IMAGE):
             beacon_index = sorted(np.random.choice(
                 len(self.distances[i]), 3, replace=False))
 
-            # while(True):
-            #     beacon_index = sorted(np.random.choice(
-            #         len(self.distances[i]), 3, replace=False))
-            #     xs = self.nodes[i, beacon_index, 0]
-            #     ys = self.nodes[i, beacon_index, 1]
-            #     if not 0.5 < (((ys[2]-ys[1]) / (xs[2]-xs[1]))/((ys[1] - ys[0])/(xs[1]-xs[0]))) < 1.5:
-            #         break
+            while(True):
+                beacon_index = sorted(np.random.choice(
+                    len(self.distances[i]), 3, replace=False))
+                xs = self.nodes[i, beacon_index, 0]
+                ys = self.nodes[i, beacon_index, 1]
+                if not 0.5 < (((ys[2]-ys[1]) / (xs[2]-xs[1]))/((ys[1] - ys[0])/(xs[1]-xs[0]))) < 1.5:
+                    break
 
-            # print(beacon_index)
+            beacon_index = [1, 2, 14]
+            print(beacon_index)
             beacons = self.nodes[i][beacon_index]
             trainer = Trainer(
                 self.distances[i], self.hops[i], x_range, y_range, beacon_index, beacons, self.nodes[i], i)
@@ -65,6 +64,7 @@ class Master(object):
 
 if __name__ == '__main__':
     m = Master()
+    m.run()
     with Pool(cpu_count()) as p:
         results = []
         for i in range(TEST_TIMES):
@@ -72,4 +72,4 @@ if __name__ == '__main__':
         for r in results:
             r.wait()
     fp = str(datetime.now())[:-7]+'.json'
-    json.dump(m.result, open(fp))
+    json.dump(m.result, open(fp, 'w'))
