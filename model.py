@@ -1,14 +1,17 @@
 # encoding=utf-8
 import tensorflow as tf
 import numpy as np
+import os
+
 
 DISTANCE_WEIGHTING = 'ONLY_NEAR'
 LEARNING_RATE = 0.001
 DISCOUNT = 0.95
 EPOCH = 50
-timesteps = 1000
+timesteps = 50
 
 config = tf.ConfigProto(device_count={'GPU': 0})
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 
 class Model(object):
@@ -86,7 +89,8 @@ class Model(object):
         self.discounted_distances = self.discounts * self.true_distances
 
         self.loss = tf.losses.mean_squared_error(
-            self.discounted_distances, self.pred_distances,
+            tf.square(self.discounted_distances), tf.square(
+                self.pred_distances),
             self.weights)
 
         self.optimizer = tf.train.AdamOptimizer(learning_rate=LEARNING_RATE)
@@ -125,13 +129,13 @@ class Model(object):
 
         with self.sess.as_default():
             target_nodes = self.nodes[self.target_index]
-            if self.update_times >= timesteps // self.n_nodes // 2:
+            if self.update_times >= timesteps - 5:
                 right = 0
                 wrong = 0
                 for i, node in enumerate(self.nodes):
                     hop = self.hops[i]
                     dis = np.sqrt(
-                            (node[0] - self.origin_pos[0])**2 + (node[1] - self.origin_pos[1])**2)
+                        (node[0] - self.origin_pos[0])**2 + (node[1] - self.origin_pos[1])**2)
 
                     if dis < 4.1:
                         if hop == 1:
@@ -139,10 +143,11 @@ class Model(object):
                         else:
                             wrong += 1
 
-                if wrong >= right:
+                if wrong > right:
                     self.origin_pos[0] = self.x_range - self.origin_pos[0]
                     self.origin_pos[1] = self.y_range - self.origin_pos[1]
-                    self.partial_update(self.i, self.origin_pos[0], self.origin_pos[1])
+                    self.partial_update(
+                        self.i, self.origin_pos[0], self.origin_pos[1])
                     if not self.using_gradient:
                         self.use_gradient_desecent()
 
@@ -184,7 +189,7 @@ class Model(object):
             #                 self.self_pos: [self.origin_pos],
             #             })
 
-        self.update_times += 1
+        # self.update_times += 1
         if self.using_gradient:
             self.origin_pos = pos
             return pos, loss
@@ -215,8 +220,13 @@ class Model(object):
         self.discounted_distances = self.discounts * self.true_distances
 
         self.loss = tf.losses.mean_squared_error(
-            self.discounted_distances, self.pred_distances,
-            self.weights)  # 在指定loss时可以指定weights
+            tf.square(self.discounted_distances), tf.square(
+                self.pred_distances),
+            self.weights)
+
+        # self.loss = tf.losses.mean_squared_error(
+        #     self.discounted_distances, self.pred_distances,
+        #     self.weights)  # 在指定loss时可以指定weights
 
         self.optimizer = tf.train.AdamOptimizer(learning_rate=LEARNING_RATE)
         self.train_step = self.optimizer.minimize(self.loss)

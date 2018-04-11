@@ -1,11 +1,13 @@
 # encoding=utf-8
 import numpy as np
+import pickle
 
+from datetime import datetime
 from model import Model, DISCOUNT
 from matplotlib import pyplot as plt
 from sympy import symbol, solve
 
-timesteps = 1000
+timesteps = 50
 hops_limit = 3
 
 
@@ -62,7 +64,8 @@ class Trainer(object):
                 nodes = np.array(nodes)
                 pos = np.array(self.nodes[i])
                 beacon_index = [len(sorted_index) + i for i in range(0, 3)]
-                self.models.append(Model(nodes, dis, hops, self.x_range, self.y_range, beacon_index, nodes_map, pos, i))
+                self.models.append(Model(
+                    nodes, dis, hops, self.x_range, self.y_range, beacon_index, nodes_map, pos, i))
 
             else:
                 self.models.append(None)
@@ -91,10 +94,13 @@ class Trainer(object):
     def train(self):
         new_nodes = np.zeros((self.n_nodes, 2))
 
-        for t in range(timesteps):
+        sequence = list(range(self.n_nodes)) * timesteps
+        np.random.shuffle(sequence)
+        losses = []
+
+        for t, i in enumerate(sequence):
             # 这里如果是个python原生的数组的话，传入的是值，但是如果是一个numpy数组的话，传入的是引用，所以此处需要一个新的数组才缓存值
             dis_loss = 0
-            i = np.random.randint(self.n_nodes)
             if i not in self.beacon_index:
                 (x, y), dis_loss = self.models[i].train_and_update()
                 for m in self.models:
@@ -105,20 +111,23 @@ class Trainer(object):
             else:
                 new_nodes[i] = self.beacons[self.beacon_index.index(i)]
 
-            if(t % 100 == 0):
+            if(t % 10 == 0):
                 self.nodes = new_nodes
-                loss1 = np.mean(np.sqrt((self.nodes[:, 0] - self.true_nodes[:, 0]) ** 2 + (self.nodes[:, 1] - self.true_nodes[:, 1]) ** 2))
-
-                loss2 = np.mean(np.abs(self.nodes - self.true_nodes))
-                print(loss1)
-                print(loss2)
-                print(dis_loss)
-                print("==========")
+                loss1 = np.mean(np.sqrt((self.nodes[:, 0] - self.true_nodes[:, 0]) ** 2 + (
+                    self.nodes[:, 1] - self.true_nodes[:, 1]) ** 2))
+                losses.append(loss1)
+                # print(loss1)
+                # print(loss2)
+                # print(dis_loss)
+                # print("==========")
                 # self.plot()
         self.nodes = new_nodes
-        loss1 = np.mean(np.sqrt((self.nodes[:, 0] - self.true_nodes[:, 0]) ** 2 + (self.nodes[:, 1] - self.true_nodes[:, 1]) ** 2))
+        loss1 = np.mean(np.sqrt((self.nodes[:, 0] - self.true_nodes[:, 0]) ** 2 + (
+            self.nodes[:, 1] - self.true_nodes[:, 1]) ** 2))
 
         self.plot(show=False)
+        fp = str(self.i)+str(self.beacon_index)+'.pkl'
+        pickle.dump(losses, open(fp, 'wb'))
         return loss1
 
     def pos(self, xs, ys, ds):
@@ -171,5 +180,8 @@ class Trainer(object):
         for i in range(len(self.nodes)):
             ax.annotate(str(i), (self.nodes[i, 0], self.nodes[i, 1]))
             ax.annotate(str(i), (self.true_nodes[i, 0], self.true_nodes[i, 1]))
-        fig.savefig(str(self.i)+str(self.beacon_index)+'.png')
-        plt.show()
+        fp = str(self.i)+str(self.beacon_index)+'.png'
+        # fp = str(datetime.now())[:-7]+'.png'
+        fig.savefig(fp)
+        if show:
+            plt.show()
