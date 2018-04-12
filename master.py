@@ -9,7 +9,7 @@ from datetime import datetime
 # batch_size = 20
 x_range = 10
 y_range = 10
-TEST_TIMES = 4
+TEST_TIMES = 2
 TEST_PER_IMAGE = 2
 
 
@@ -38,6 +38,8 @@ class Master(object):
             while(i in self.blacklist):
                 i = np.random.randint(len(self.distances))
 
+        # i = 54
+
         print(i)
         if not beacon_index:
             beacon_index = sorted(np.random.choice(
@@ -50,6 +52,9 @@ class Master(object):
                 ys = self.nodes[i, beacon_index, 1]
                 if not 0.5 < (((ys[2]-ys[1]) / (xs[2]-xs[1]))/((ys[1] - ys[0])/(xs[1]-xs[0]))) < 1.5:
                     break
+
+        # beacon_index = [1, 15, 19]
+        # beacon_index = [8, 10, 14]
 
         print(beacon_index)
         beacons = self.nodes[i][beacon_index]
@@ -66,25 +71,25 @@ class Master(object):
 
 if __name__ == '__main__':
     m = Master()
-    # m.run()
-    with Pool(cpu_count() // 2) as p:
-        results = []
-        for t1 in range(TEST_TIMES):
-            i = np.random.randint(len(m.distances))
-            while(i in m.blacklist):
-                i = np.random.randint(len(m.distances))
+    m.run()
+    # with Pool(cpu_count() // 2) as p:
+    #     results = []
+    #     for t1 in range(TEST_TIMES):
+    #         i = np.random.randint(len(m.distances))
+    #         while(i in m.blacklist):
+    #             i = np.random.randint(len(m.distances))
 
-            for t2 in range(TEST_PER_IMAGE):
-                beacon_index = sorted(np.random.choice(
-                    len(m.distances[i]), 3, replace=False))
+    #         for t2 in range(TEST_PER_IMAGE):
+    #             beacon_index = sorted(np.random.choice(
+    #                 len(m.distances[i]), 3, replace=False))
 
-                while(True):
-                    beacon_index = sorted(np.random.choice(
-                        len(m.distances[i]), 3, replace=False))
-                    xs = m.nodes[i, beacon_index, 0]
-                    ys = m.nodes[i, beacon_index, 1]
-                    if not 0.5 < (((ys[2]-ys[1]) / (xs[2]-xs[1]))/((ys[1] - ys[0])/(xs[1]-xs[0]))) < 1.5:
-                        break
-                results.append(p.apply_async(m.run, args=(i, beacon_index)))
-        for r in results:
-            r.wait()
+    #             while(True):
+    #                 beacon_index = sorted(np.random.choice(
+    #                     len(m.distances[i]), 3, replace=False))
+    #                 xs = m.nodes[i, beacon_index, 0]
+    #                 ys = m.nodes[i, beacon_index, 1]
+    #                 if not 0.5 < (((ys[2]-ys[1]) / (xs[2]-xs[1]))/((ys[1] - ys[0])/(xs[1]-xs[0]))) < 1.5:
+    #                     break
+    #             results.append(p.apply_async(m.run, args=(i, beacon_index)))
+    #     for r in results:
+    #         r.wait()

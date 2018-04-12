@@ -89,9 +89,8 @@ class Model(object):
         self.discounted_distances = self.discounts * self.true_distances
 
         self.loss = tf.losses.mean_squared_error(
-            tf.square(self.discounted_distances), tf.square(
-                self.pred_distances),
-            self.weights)
+            self.discounted_distances, self.pred_distances, self.weights
+        )
 
         self.optimizer = tf.train.AdamOptimizer(learning_rate=LEARNING_RATE)
         self.train_step = self.optimizer.minimize(self.loss)
@@ -113,7 +112,7 @@ class Model(object):
             for i in self.beacon_index:
                 if self.hops[i] == -1:
                     continue
-                goal_weights.append(0.4**(self.hops[i] - 1))
+                goal_weights.append(0.6**(self.hops[i] - 1))
                 index.append(i)
         goal_weights = list(map(lambda x: x / sum(goal_weights), goal_weights))
         discounts = []
@@ -129,7 +128,7 @@ class Model(object):
 
         with self.sess.as_default():
             target_nodes = self.nodes[self.target_index]
-            if self.update_times >= timesteps - 5:
+            if self.update_times >= timesteps - 1:
                 right = 0
                 wrong = 0
                 for i, node in enumerate(self.nodes):
@@ -189,7 +188,7 @@ class Model(object):
             #                 self.self_pos: [self.origin_pos],
             #             })
 
-        # self.update_times += 1
+        self.update_times += 1
         if self.using_gradient:
             self.origin_pos = pos
             return pos, loss
@@ -220,15 +219,8 @@ class Model(object):
         self.discounted_distances = self.discounts * self.true_distances
 
         self.loss = tf.losses.mean_squared_error(
-            tf.square(self.discounted_distances), tf.square(
-                self.pred_distances),
-            self.weights)
-
-        # self.loss = tf.losses.mean_squared_error(
-        #     self.discounted_distances, self.pred_distances,
-        #     self.weights)  # 在指定loss时可以指定weights
-
+            self.discounted_distances, self.pred_distances, self.weights
+        )
         self.optimizer = tf.train.AdamOptimizer(learning_rate=LEARNING_RATE)
         self.train_step = self.optimizer.minimize(self.loss)
-
         tf.global_variables_initializer().run(session=self.sess)

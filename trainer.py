@@ -2,12 +2,12 @@
 import numpy as np
 import pickle
 
-from datetime import datetime
 from model import Model, DISCOUNT
 from matplotlib import pyplot as plt
 from sympy import symbol, solve
+from collections import OrderedDict
 
-timesteps = 50
+timesteps = 20
 hops_limit = 3
 
 
@@ -27,7 +27,7 @@ class Trainer(object):
         self.nodes = []
         self.true_nodes = nodes
 
-        self.models = []
+        self.models = OrderedDict()
         self.hops = hops
 
         self.initialize_nodes()
@@ -35,13 +35,12 @@ class Trainer(object):
 
     def initialize_models(self):
         nodes_index = list(range(self.n_nodes))
-        for i in self.beacon_index:
-            nodes_index.remove(i)
         hops = np.copy(self.hops)
         hops[hops == -1] = 999
-        nodes_index = np.argsort(np.mean(hops[:, self.beacon_index], axis=1))
-        for i in range(self.n_nodes):
-            if i in nodes_index:
+        nodes_index = list(np.argsort(np.mean(hops[:, self.beacon_index], axis=1)))
+        np.random.shuffle(nodes_index)
+        for i in nodes_index:
+            if i not in self.beacon_index:
                 sorted_index = []
                 # 建立一个全局nodes与单个node需要的nodes的映射
                 nodes_map = {}
@@ -64,11 +63,11 @@ class Trainer(object):
                 nodes = np.array(nodes)
                 pos = np.array(self.nodes[i])
                 beacon_index = [len(sorted_index) + i for i in range(0, 3)]
-                self.models.append(Model(
-                    nodes, dis, hops, self.x_range, self.y_range, beacon_index, nodes_map, pos, i))
+                self.models[i] = Model(
+                    nodes, dis, hops, self.x_range, self.y_range, beacon_index, nodes_map, pos, i)
 
             else:
-                self.models.append(None)
+                self.models[i] = None
 
     # 随机生成，后续可以优化为先pre_train，可能会更容易收敛到解
     def initialize_nodes(self):
@@ -98,29 +97,33 @@ class Trainer(object):
         np.random.shuffle(sequence)
         losses = []
 
-        for t, i in enumerate(sequence):
+        for t in range(timesteps):
+            left = list(range(self.n_nodes))
             # 这里如果是个python原生的数组的话，传入的是值，但是如果是一个numpy数组的话，传入的是引用，所以此处需要一个新的数组才缓存值
             dis_loss = 0
-            if i not in self.beacon_index:
-                (x, y), dis_loss = self.models[i].train_and_update()
-                for m in self.models:
-                    if m:
-                        m.partial_update(i, x, y)
-                new_nodes[i][0] = np.min([np.max([x, 0.0]), self.x_range])
-                new_nodes[i][1] = np.min([np.max([y, 0.0]), self.y_range])
-            else:
-                new_nodes[i] = self.beacons[self.beacon_index.index(i)]
+            while left:
+                i = np.random.choice(left)
+                left.remove(i)
+                if i not in self.beacon_index:
+                    (x, y), dis_loss = self.models[i].train_and_update()
+                    # print(self.models)
+                    for j in self.models.keys():
+                        if self.models[j]:
+                            self.models[j].partial_update(i, x, y)
+                    new_nodes[i][0] = np.min([np.max([x, 0.0]), self.x_range])
+                    new_nodes[i][1] = np.min([np.max([y, 0.0]), self.y_range])
+                else:
+                    new_nodes[i] = self.beacons[self.beacon_index.index(i)]
 
-            if(t % 10 == 0):
+            if (t+1) % 10 == 0:
                 self.nodes = new_nodes
                 loss1 = np.mean(np.sqrt((self.nodes[:, 0] - self.true_nodes[:, 0]) ** 2 + (
                     self.nodes[:, 1] - self.true_nodes[:, 1]) ** 2))
                 losses.append(loss1)
-                # print(loss1)
-                # print(loss2)
-                # print(dis_loss)
-                # print("==========")
-                # self.plot()
+                print(loss1)
+                print(dis_loss)
+                print("==========")
+                self.plot()
         self.nodes = new_nodes
         loss1 = np.mean(np.sqrt((self.nodes[:, 0] - self.true_nodes[:, 0]) ** 2 + (
             self.nodes[:, 1] - self.true_nodes[:, 1]) ** 2))
