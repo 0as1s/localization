@@ -9,8 +9,8 @@ from datetime import datetime
 # batch_size = 20
 x_range = 10
 y_range = 10
-TEST_TIMES = 2
-TEST_PER_IMAGE = 2
+TEST_TIMES = 16
+TEST_PER_IMAGE = 1
 
 
 class Master(object):
@@ -71,25 +71,29 @@ class Master(object):
 
 if __name__ == '__main__':
     m = Master()
-    m.run()
-    # with Pool(cpu_count() // 2) as p:
-    #     results = []
-    #     for t1 in range(TEST_TIMES):
-    #         i = np.random.randint(len(m.distances))
-    #         while(i in m.blacklist):
-    #             i = np.random.randint(len(m.distances))
+    # m.run()
+    with Pool(cpu_count() // 2) as p:
+        results = []
+        for t1 in range(TEST_TIMES):
+            i = np.random.randint(len(m.distances))
+            i = np.random.randint(10)
+            while(i in m.blacklist):
+                i = np.random.randint(10)
 
-    #         for t2 in range(TEST_PER_IMAGE):
-    #             beacon_index = sorted(np.random.choice(
-    #                 len(m.distances[i]), 3, replace=False))
+            for t2 in range(TEST_PER_IMAGE):
+                beacon_index = sorted(np.random.choice(
+                    len(m.distances[i]), 3, replace=False))
 
-    #             while(True):
-    #                 beacon_index = sorted(np.random.choice(
-    #                     len(m.distances[i]), 3, replace=False))
-    #                 xs = m.nodes[i, beacon_index, 0]
-    #                 ys = m.nodes[i, beacon_index, 1]
-    #                 if not 0.5 < (((ys[2]-ys[1]) / (xs[2]-xs[1]))/((ys[1] - ys[0])/(xs[1]-xs[0]))) < 1.5:
-    #                     break
-    #             results.append(p.apply_async(m.run, args=(i, beacon_index)))
-    #     for r in results:
-    #         r.wait()
+                while(True):
+                    beacon_index = sorted(np.random.choice(
+                        len(m.distances[i]), 3, replace=False))
+                    xs = m.nodes[i, beacon_index, 0]
+                    ys = m.nodes[i, beacon_index, 1]
+                    flag1 = not (0.5 < (((ys[2]-ys[1]) / (xs[2]-xs[1]))/((ys[1] - ys[0])/(xs[1]-xs[0]))) < 1.5)
+                    flag2 = np.sqrt(((ys[1] - ys[0]) ** 2 + (xs[1] - xs[0]) ** 2)) > 3
+                    flag3 = np.sqrt(((ys[2] - ys[1]) ** 2 + (xs[2] - xs[1]) ** 2)) > 3
+                    if flag1 and flag2 and flag3:
+                        break
+                results.append(p.apply_async(m.run, args=(i, beacon_index)))
+        for r in results:
+            r.wait()

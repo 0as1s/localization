@@ -7,7 +7,7 @@ from matplotlib import pyplot as plt
 from sympy import symbol, solve
 from collections import OrderedDict
 
-timesteps = 20
+timesteps = 50
 hops_limit = 3
 
 
@@ -123,7 +123,7 @@ class Trainer(object):
                 print(loss1)
                 print(dis_loss)
                 print("==========")
-                self.plot()
+                # self.plot()
         self.nodes = new_nodes
         loss1 = np.mean(np.sqrt((self.nodes[:, 0] - self.true_nodes[:, 0]) ** 2 + (
             self.nodes[:, 1] - self.true_nodes[:, 1]) ** 2))
