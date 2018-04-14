@@ -119,12 +119,16 @@ class Trainer(object):
                 self.nodes = new_nodes
                 loss1 = np.mean(np.sqrt((self.nodes[:, 0] - self.true_nodes[:, 0]) ** 2 + (
                     self.nodes[:, 1] - self.true_nodes[:, 1]) ** 2))
-                losses.append(loss1)
-                print(loss1)
-                print(dis_loss)
-                print("==========")
+                # losses.append(loss1)
+                # print(loss1)
+                # print(dis_loss)
+                # print("==========")
                 # self.plot()
         self.nodes = new_nodes
+        for i in self.models.keys():
+            m = self.models[i]
+            if m:
+                self.nodes[i][0], self.nodes[i][1] = m.origin_pos[0], m.origin_pos[1]
         loss1 = np.mean(np.sqrt((self.nodes[:, 0] - self.true_nodes[:, 0]) ** 2 + (
             self.nodes[:, 1] - self.true_nodes[:, 1]) ** 2))
 

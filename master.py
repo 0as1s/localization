@@ -7,9 +7,9 @@ from datetime import datetime
 
 
 # batch_size = 20
-x_range = 10
-y_range = 10
-TEST_TIMES = 16
+x_range = 10.0
+y_range = 10.0
+TEST_TIMES = 8
 TEST_PER_IMAGE = 1
 
 
@@ -38,7 +38,7 @@ class Master(object):
             while(i in self.blacklist):
                 i = np.random.randint(len(self.distances))
 
-        # i = 54
+        # i = 16
 
         print(i)
         if not beacon_index:
@@ -53,8 +53,7 @@ class Master(object):
                 if not 0.5 < (((ys[2]-ys[1]) / (xs[2]-xs[1]))/((ys[1] - ys[0])/(xs[1]-xs[0]))) < 1.5:
                     break
 
-        # beacon_index = [1, 15, 19]
-        # beacon_index = [8, 10, 14]
+        # beacon_index = [7, 8, 12]
 
         print(beacon_index)
         beacons = self.nodes[i][beacon_index]
@@ -76,9 +75,8 @@ if __name__ == '__main__':
         results = []
         for t1 in range(TEST_TIMES):
             i = np.random.randint(len(m.distances))
-            i = np.random.randint(10)
             while(i in m.blacklist):
-                i = np.random.randint(10)
+                i = np.random.randint(len(m.distances))
 
             for t2 in range(TEST_PER_IMAGE):
                 beacon_index = sorted(np.random.choice(
@@ -89,10 +87,19 @@ if __name__ == '__main__':
                         len(m.distances[i]), 3, replace=False))
                     xs = m.nodes[i, beacon_index, 0]
                     ys = m.nodes[i, beacon_index, 1]
-                    flag1 = not (0.5 < (((ys[2]-ys[1]) / (xs[2]-xs[1]))/((ys[1] - ys[0])/(xs[1]-xs[0]))) < 1.5)
-                    flag2 = np.sqrt(((ys[1] - ys[0]) ** 2 + (xs[1] - xs[0]) ** 2)) > 3
-                    flag3 = np.sqrt(((ys[2] - ys[1]) ** 2 + (xs[2] - xs[1]) ** 2)) > 3
-                    if flag1 and flag2 and flag3:
+
+                    k1 = (ys[1] - ys[0])/(xs[1]-xs[0])
+                    k2 = (ys[2] - ys[0])/(xs[2]-xs[0])
+                    k3 = (ys[2] - ys[1])/(xs[2]-xs[1])
+
+                    flag1 = not (0.6 < abs(k1/k2) < 1.4)
+                    flag2 = not (0.6 < abs(k1/k3) < 1.4)
+                    flag3 = not (0.6 < abs(k2/k3) < 1.4)
+
+                    flag4 = m.distances[i][beacon_index[0]][beacon_index[1]] > 3
+                    flag5 = m.distances[i][beacon_index[1]][beacon_index[2]] > 3
+                    flag6 = m.distances[i][beacon_index[0]][beacon_index[2]] > 3
+                    if flag1 and flag2 and flag3 and flag4 and flag5 and flag6:
                         break
                 results.append(p.apply_async(m.run, args=(i, beacon_index)))
         for r in results:
