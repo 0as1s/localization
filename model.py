@@ -45,24 +45,25 @@ class Model(object):
         self.update_times = 0
 
         self.activation = tf.nn.sigmoid
-        self.weights, self.input_weights, self.target_index, self.discounts = self.weigting_distances()
+        self.weights, self.target_index, self.discounts = self.weighting_distances(
+            network=True)
 
         self.dis_to_pred = self.distances[self.target_index]
 
         self.sess = tf.Session(config=config)
-        self.x = tf.placeholder(tf.float32, shape=[1, 4 * self.n_nodes])
+        self.x = tf.placeholder(tf.float32, shape=[1, 3 * self.n_nodes])
 
         self.dense1 = tf.layers.dense(
-            self.x, 4 * self.n_nodes, activation=self.activation)
+            self.x, 3 * self.n_nodes, activation=self.activation)
 
         self.dense2 = tf.layers.dense(
-            self.dense1, 4 * self.n_nodes, activation=self.activation)
+            self.dense1, 3 * self.n_nodes, activation=self.activation)
 
         self.dense3 = tf.layers.dense(
-            self.dense2, 4 * self.n_nodes, activation=self.activation)
+            self.dense2, 3 * self.n_nodes, activation=self.activation)
 
         self.dense4 = tf.layers.dense(
-            self.dense3, 4 * self.n_nodes, activation=self.activation)
+            self.dense3, 3 * self.n_nodes, activation=self.activation)
 
         self.self_pos = tf.placeholder(tf.float32, shape=[1, 2])
         self.dense4_self_pos = tf.concat([self.dense4, self.self_pos], 1)
@@ -92,57 +93,47 @@ class Model(object):
             self.discounted_distances, self.pred_distances, self.weights
         )
 
+        # self.loss = tf.losses.mean_squared_error(
+        #     tf.square(self.discounted_distances), tf.square(
+        #         self.pred_distances), self.weights
+        # )
+
         self.optimizer = tf.train.AdamOptimizer(learning_rate=LEARNING_RATE)
         self.train_step = self.optimizer.minimize(self.loss)
 
         tf.global_variables_initializer().run(session=self.sess)
 
-    def weigting_distances(self):
+    def weighting_distances(self, network):
         goal_weights = []
-        input_weights = list(map(lambda x: 1.0 / (x + 1), self.hops))
         index = []
         for i in np.argsort(self.hops):
-            if self.hops[i] in (1, 2, 3):
-                goal_weights.append(0.4**(self.hops[i] - 1))
-                index.append(i)
-        for i in self.beacon_index:
-            if self.hops[i] == -1:
-                continue
-            goal_weights.append(0.6**(self.hops[i] - 1))
-            index.append(i)
-        goal_weights = list(map(lambda x: x / sum(goal_weights), goal_weights))
-        discounts = []
-        for i in index:
-            discounts.append(DISCOUNT**(self.hops[i] - 1))
-        return goal_weights, input_weights, index, discounts
+            if network:
+                if self.hops[i] in (1, 2, 3):
+                    goal_weights.append(0.4**(self.hops[i] - 1))
+                    index.append(i)
+            else:
+                if self.hops[i] in (1, ):
+                    goal_weights.append(0.4**(self.hops[i] - 1))
+                    index.append(i)
 
-    def weights_for_gradient_descent(self):
-        goal_weights = []
-        input_weights = list(map(lambda x: 1.0 / (x + 1), self.hops))
-        index = []
-        for i in np.argsort(self.hops):
-            if self.hops[i] in (1, ):
-                goal_weights.append(0.4**(self.hops[i] - 1))
-                index.append(i)
         for i in self.beacon_index:
             if self.hops[i] == -1:
                 continue
             goal_weights.append(0.6**(self.hops[i] - 1))
             index.append(i)
+
         goal_weights = list(map(lambda x: x / sum(goal_weights), goal_weights))
         discounts = []
         for i in index:
             discounts.append(DISCOUNT**(self.hops[i] - 1))
-        return goal_weights, input_weights, index, discounts
+        return goal_weights, index, discounts
 
     def train_and_update(self):
         x_input = np.array([
             self.nodes[:, 0], self.nodes[:, 1], self.distances,
-            self.input_weights
         ]).flatten()
         pos_backup = self.origin_pos
         with self.sess.as_default():
-            target_nodes = self.nodes[self.target_index]
 
             flag = False
             if self.origin_pos[0] < 0:
@@ -191,6 +182,7 @@ class Model(object):
                 if not self.using_gradient:
                     self.use_gradient_desecent()
 
+            target_nodes = self.nodes[self.target_index]
             for i in range(EPOCH):
                 loss, pos, _ = tf.get_default_session().run(
                     [
@@ -227,11 +219,13 @@ class Model(object):
         return np.sqrt(np.square(xs - x) + np.square(ys - y))
 
     def use_gradient_desecent(self):
-        self.weights, self.input_weights, self.target_index, self.discounts = self.weigting_distances()
+        self.weights, self.target_index, self.discounts = self.weighting_distances(
+            network=False)
 
         self.using_gradient = True
         self.pos = tf.Variable(self.origin_pos, dtype=tf.float32)
 
+        self.dis_to_pred = self.distances[self.target_index]
         self.xs = tf.placeholder(tf.float32, shape=len(self.target_index))
         self.ys = tf.placeholder(tf.float32, shape=len(self.target_index))
 
@@ -247,6 +241,12 @@ class Model(object):
             self.discounted_distances, self.pred_distances, self.weights
         )
 
-        self.optimizer = tf.train.AdamOptimizer(learning_rate=LEARNING_RATE * 10)
+        # self.loss = tf.losses.mean_squared_error(
+        #     tf.square(self.discounted_distances), tf.square(
+        #         self.pred_distances), self.weights
+        # )
+
+        self.optimizer = tf.train.AdamOptimizer(
+            learning_rate=LEARNING_RATE * 10)
         self.train_step = self.optimizer.minimize(self.loss)
         tf.global_variables_initializer().run(session=self.sess)

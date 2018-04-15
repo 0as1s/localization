@@ -37,7 +37,8 @@ class Trainer(object):
         nodes_index = list(range(self.n_nodes))
         hops = np.copy(self.hops)
         hops[hops == -1] = 999
-        nodes_index = list(np.argsort(np.mean(hops[:, self.beacon_index], axis=1)))
+        nodes_index = list(np.argsort(
+            np.mean(hops[:, self.beacon_index], axis=1)))
         np.random.shuffle(nodes_index)
         for i in nodes_index:
             if i not in self.beacon_index:
@@ -119,7 +120,7 @@ class Trainer(object):
                 self.nodes = new_nodes
                 loss1 = np.mean(np.sqrt((self.nodes[:, 0] - self.true_nodes[:, 0]) ** 2 + (
                     self.nodes[:, 1] - self.true_nodes[:, 1]) ** 2))
-                # losses.append(loss1)
+                losses.append(loss1)
                 # print(loss1)
                 # print(dis_loss)
                 # print("==========")

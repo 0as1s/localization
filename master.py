@@ -28,6 +28,15 @@ class Master(object):
         for i, m in enumerate(self.hops):
             if any(map(lambda x: x == -1, m.flatten())):
                 self.blacklist.append(i)
+            for hops in m:
+                count = 0
+                for h in hops:
+                    if h == 1:
+                        count += 1
+                if count <= 2:
+                    self.blacklist.append(i)
+                    break
+        print(self.blacklist)
         self.result = {}
 
     def run(self, i=None, beacon_index=None):
@@ -53,7 +62,7 @@ class Master(object):
                 if not 0.5 < (((ys[2]-ys[1]) / (xs[2]-xs[1]))/((ys[1] - ys[0])/(xs[1]-xs[0]))) < 1.5:
                     break
 
-        # beacon_index = [7, 8, 12]
+        # beacon_index = [4, 11, 15]
 
         print(beacon_index)
         beacons = self.nodes[i][beacon_index]
@@ -96,9 +105,12 @@ if __name__ == '__main__':
                     flag2 = not (0.6 < abs(k1/k3) < 1.4)
                     flag3 = not (0.6 < abs(k2/k3) < 1.4)
 
-                    flag4 = m.distances[i][beacon_index[0]][beacon_index[1]] > 3
-                    flag5 = m.distances[i][beacon_index[1]][beacon_index[2]] > 3
-                    flag6 = m.distances[i][beacon_index[0]][beacon_index[2]] > 3
+                    flag4 = m.distances[i][beacon_index[0]
+                                           ][beacon_index[1]] > 3
+                    flag5 = m.distances[i][beacon_index[1]
+                                           ][beacon_index[2]] > 3
+                    flag6 = m.distances[i][beacon_index[0]
+                                           ][beacon_index[2]] > 3
                     if flag1 and flag2 and flag3 and flag4 and flag5 and flag6:
                         break
                 results.append(p.apply_async(m.run, args=(i, beacon_index)))
