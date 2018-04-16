@@ -106,19 +106,20 @@ class Model(object):
     def weighting_distances(self, network):
         goal_weights = []
         index = []
-        for i in np.argsort(self.hops):
-            if network:
-                if self.hops[i] in (1, 2, 3):
-                    goal_weights.append(0.4**(self.hops[i] - 1))
-                    index.append(i)
-            else:
+        if network:
+            for h in(1, 2, 3):
+                hops_index = np.argwhere(self.hops == h)
+                for i in hops_index:
+
+                    goal_weights.append(0.4**(h - 1) / len(hops_index))
+                    index.append(i[0])
+        else:
+            for i in np.argsort(self.hops):
                 if self.hops[i] in (1, ):
                     goal_weights.append(0.4**(self.hops[i] - 1))
                     index.append(i)
 
         for i in self.beacon_index:
-            if self.hops[i] == -1:
-                continue
             goal_weights.append(0.6**(self.hops[i] - 1))
             index.append(i)
 
