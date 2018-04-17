@@ -3,13 +3,12 @@ import numpy as np
 import json
 from trainer import Trainer
 from multiprocessing import Pool, cpu_count
-from datetime import datetime
 
 
 # batch_size = 20
 x_range = 10.0
 y_range = 10.0
-TEST_TIMES = 8
+TEST_TIMES = 4
 TEST_PER_IMAGE = 1
 
 
@@ -28,16 +27,14 @@ class Master(object):
         for i, m in enumerate(self.hops):
             if any(map(lambda x: x == -1, m.flatten())):
                 self.blacklist.append(i)
-            for hops in m:
-                count = 0
-                for h in hops:
-                    if h == 1:
-                        count += 1
-                if count <= 2:
-                    self.blacklist.append(i)
-                    break
-        print(self.blacklist)
-        self.result = {}
+            # for hops in m:
+            #     count = 0
+            #     for h in hops:
+            #         if h == 1:
+            #             count += 1
+            #     if count <= 2:
+            #         self.blacklist.append(i)
+            #         break
 
     def run(self, i=None, beacon_index=None):
 
@@ -70,9 +67,18 @@ class Master(object):
             self.distances[i], self.hops[i], x_range, y_range, beacon_index, beacons, self.nodes[i], i)
         loss = trainer.train()
         # self.result[str(i) + str(beacon_index)] = loss
-        fp = str(i)+str(beacon_index)+'.json'
+        fp = str(i)+str(beacon_index)+'.1.json'
         json.dump(loss, open(fp, 'w'))
-        print(loss)
+
+        trainer = Trainer(
+            self.distances[i], self.hops[i], x_range, y_range, beacon_index, beacons, self.nodes[i], i, using_net=False)
+        loss2 = trainer.train()
+        # self.result[str(i) + str(beacon_index)] = loss
+        fp = str(i)+str(beacon_index)+'.2.json'
+        json.dump(loss2, open(fp, 'w'))
+
+        return loss, loss2
+        # print(loss)
         # print(i)
         # print(beacon_index)
 
@@ -114,5 +120,7 @@ if __name__ == '__main__':
                     if flag1 and flag2 and flag3 and flag4 and flag5 and flag6:
                         break
                 results.append(p.apply_async(m.run, args=(i, beacon_index)))
+        # for r in results:
+        #     r.wait()
         for r in results:
-            r.wait()
+            print(r.get())

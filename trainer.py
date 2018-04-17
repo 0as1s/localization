@@ -1,6 +1,9 @@
 # encoding=utf-8
 import numpy as np
 import pickle
+import matplotlib
+
+matplotlib.use("AGG")
 
 from model import Model, DISCOUNT
 from matplotlib import pyplot as plt
@@ -15,7 +18,7 @@ hops_limit = 3
 # 考虑加入降噪层
 class Trainer(object):
     def __init__(self, distances, hops, x_range, y_range, beacon_index,
-                 beacons, nodes, i):
+                 beacons, nodes, i, using_net=True):
 
         self.i = i
         self.distances = distances
@@ -29,6 +32,7 @@ class Trainer(object):
 
         self.models = OrderedDict()
         self.hops = hops
+        self.using_net = using_net
 
         self.initialize_nodes()
         self.initialize_models()
@@ -65,7 +69,7 @@ class Trainer(object):
                 pos = np.array(self.nodes[i])
                 beacon_index = [len(sorted_index) + i for i in range(0, 3)]
                 self.models[i] = Model(
-                    nodes, dis, hops, self.x_range, self.y_range, beacon_index, nodes_map, pos, i)
+                    nodes, dis, hops, self.x_range, self.y_range, beacon_index, nodes_map, pos, i, using_net=self.using_net)
 
             else:
                 self.models[i] = None
@@ -96,7 +100,7 @@ class Trainer(object):
 
         sequence = list(range(self.n_nodes)) * timesteps
         np.random.shuffle(sequence)
-        losses = []
+        # losses = []
 
         for t in range(timesteps):
             left = list(range(self.n_nodes))
@@ -120,7 +124,7 @@ class Trainer(object):
                 self.nodes = new_nodes
                 loss1 = np.mean(np.sqrt((self.nodes[:, 0] - self.true_nodes[:, 0]) ** 2 + (
                     self.nodes[:, 1] - self.true_nodes[:, 1]) ** 2))
-                losses.append(loss1)
+                # losses.append(loss1)
                 # print(loss1)
                 # print(dis_loss)
                 # print("==========")
@@ -133,9 +137,9 @@ class Trainer(object):
         loss1 = np.mean(np.sqrt((self.nodes[:, 0] - self.true_nodes[:, 0]) ** 2 + (
             self.nodes[:, 1] - self.true_nodes[:, 1]) ** 2))
 
-        self.plot(show=False)
-        fp = str(self.i)+str(self.beacon_index)+'.pkl'
-        pickle.dump(losses, open(fp, 'wb'))
+        # self.plot(show=False)
+        # fp = str(self.i)+str(self.beacon_index)+'.pkl'
+        # pickle.dump(losses, open(fp, 'wb'))
         return loss1
 
     def pos(self, xs, ys, ds):
