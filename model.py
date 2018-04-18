@@ -43,13 +43,23 @@ class Model(object):
         self.n_nodes = len(self.nodes)
         self.nodes_map = nodes_map
         self.update_times = 0
+        self.sess = tf.Session(config=config)
+
+        if using_net:
+            self.use_net(nodes, distances, hops, x_range, y_range, beacon_index,
+                         nodes_map, pos, i, )
+        else:
+            self.use_gradient_desecent()
+
+    def use_net(self, nodes, distances, hops, x_range, y_range, beacon_index,
+                nodes_map, pos, i):
 
         self.activation = tf.nn.sigmoid
+
         self.weights, self.input_weights, self.target_index, self.discounts = self.weigting_distances()
 
         self.dis_to_pred = self.distances[self.target_index]
 
-        self.sess = tf.Session(config=config)
         self.x = tf.placeholder(tf.float32, shape=[1, 4 * self.n_nodes])
 
         self.dense1 = tf.layers.dense(
@@ -94,8 +104,6 @@ class Model(object):
         self.train_step = self.optimizer.minimize(self.loss)
 
         tf.global_variables_initializer().run(session=self.sess)
-        if not using_net:
-            self.use_gradient_desecent()
 
     def weigting_distances(self):
         goal_weights = []
@@ -104,16 +112,22 @@ class Model(object):
             if i in self.index:
                 input_weights[i] = 3
         index = []
-        if DISTANCE_WEIGHTING == "ONLY_NEAR":
+        if not self.using_gradient:
             for i, d in enumerate(self.distances):
                 if self.hops[i] in (1, 2, 3):
                     goal_weights.append(0.4**(self.hops[i] - 1))
                     index.append(i)
-            for i in self.beacon_index:
-                if self.hops[i] == -1:
-                    continue
-                goal_weights.append(2 * 0.5**(self.hops[i] - 1))
-                index.append(i)
+        else:
+            for i, d in enumerate(self.distances):
+                if self.hops[i] in (1, ):
+                    goal_weights.append(0.4**(self.hops[i] - 1))
+                    index.append(i)
+        for i in self.beacon_index:
+            if self.hops[i] == -1:
+                continue
+            goal_weights.append(2 * 0.5**(self.hops[i] - 1))
+            index.append(i)
+
         goal_weights = list(map(lambda x: x / sum(goal_weights), goal_weights))
         discounts = []
         for i in index:
@@ -127,7 +141,6 @@ class Model(object):
         ]).flatten()
 
         with self.sess.as_default():
-            target_nodes = self.nodes[self.target_index]
 
             # if self.origin_pos[0] < 0:
             #     self.origin_pos[0] = self.x_range
@@ -168,17 +181,29 @@ class Model(object):
                 if not self.using_gradient:
                     self.use_gradient_desecent()
 
-            for i in range(EPOCH):
-                loss, pos, _ = tf.get_default_session().run(
-                    [
-                        self.loss, self.pos, self.train_step
-                    ],
-                    feed_dict={
-                        self.x: [x_input],
-                        self.xs: target_nodes[:, 0],
-                        self.ys: target_nodes[:, 1],
-                        self.self_pos: [self.origin_pos],
-                    })
+            target_nodes = self.nodes[self.target_index]
+            if not self.using_gradient:
+                for i in range(EPOCH):
+                    loss, pos, _ = tf.get_default_session().run(
+                        [
+                            self.loss, self.pos, self.train_step
+                        ],
+                        feed_dict={
+                            self.x: [x_input],
+                            self.xs: target_nodes[:, 0],
+                            self.ys: target_nodes[:, 1],
+                            self.self_pos: [self.origin_pos],
+                        })
+            else:
+                for i in range(EPOCH):
+                    loss, pos, _ = tf.get_default_session().run(
+                        [
+                            self.loss, self.pos, self.train_step
+                        ],
+                        feed_dict={
+                            self.xs: target_nodes[:, 0],
+                            self.ys: target_nodes[:, 1],
+                        })
 
         self.update_times += 1
         if self.using_gradient:
@@ -200,8 +225,11 @@ class Model(object):
 
     def use_gradient_desecent(self):
         self.using_gradient = True
-        self.pos = tf.Variable(self.origin_pos, dtype=tf.float32)
 
+        self.weights, self.input_weights, self.target_index, self.discounts = self.weigting_distances()
+        self.dis_to_pred = self.distances[self.target_index]
+
+        self.pos = tf.Variable(self.origin_pos, dtype=tf.float32)
         self.xs = tf.placeholder(tf.float32, shape=len(self.target_index))
         self.ys = tf.placeholder(tf.float32, shape=len(self.target_index))
 
