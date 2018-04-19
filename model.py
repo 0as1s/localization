@@ -8,7 +8,7 @@ DISTANCE_WEIGHTING = 'ONLY_NEAR'
 LEARNING_RATE = 0.001
 DISCOUNT = 0.95
 EPOCH = 50
-timesteps = 50
+timesteps = 30
 tuning_timesteps = 10
 
 config = tf.ConfigProto(device_count={'GPU': 0})
@@ -55,54 +55,62 @@ class Model(object):
     def use_net(self, nodes, distances, hops, x_range, y_range, beacon_index,
                 nodes_map, pos, i):
 
-        self.activation = tf.nn.sigmoid
-
-        self.weights, self.target_index, self.discounts = self.weigting_distances()
-
-        self.dis_to_pred = self.distances[self.target_index]
-
         self.x = tf.placeholder(tf.float32, shape=[1, 3 * self.n_nodes])
 
-        self.dense1 = tf.layers.dense(
-            self.x, 3 * self.n_nodes, activation=self.activation)
+        activation = tf.nn.sigmoid
+        weights, self.target_index, discounts = self.weigting_distances()
+        dis_to_pred = self.distances[self.target_index]
 
-        self.dense2 = tf.layers.dense(
-            self.dense1, 3 * self.n_nodes, activation=self.activation)
+        dense1 = tf.layers.dense(
+            self.x, 3 * self.n_nodes, activation=activation)
 
-        self.dense3 = tf.layers.dense(
-            self.dense2, 3 * self.n_nodes, activation=self.activation)
+        # dense2 = tf.layers.dense(
+        #     dense1, 3 * self.n_nodes, activation=activation)
 
-        self.dense4 = tf.layers.dense(
-            self.dense3, 3 * self.n_nodes, activation=self.activation)
+        # dense3 = tf.layers.dense(
+        #     dense2, 3 * self.n_nodes, activation=activation)
+
+        dense4 = tf.layers.dense(
+            dense1, 3 * self.n_nodes, activation=activation)
 
         self.self_pos = tf.placeholder(tf.float32, shape=[1, 2])
-        self.dense4_self_pos = tf.concat([self.dense4, self.self_pos], 1)
+        dense4_self_pos = tf.concat([dense4, self.self_pos], 1)
 
-        self.pos = tf.layers.dense(self.dense4_self_pos, 2)
+        self.pos = tf.layers.dense(dense4_self_pos, 2)
 
         self.xs = tf.placeholder(tf.float32, shape=len(self.target_index))
         self.ys = tf.placeholder(tf.float32, shape=len(self.target_index))
 
-        self.pred_distances = tf.sqrt(
+        pred_distances = tf.sqrt(
             tf.square(self.xs - self.pos[0][0]) +
-            tf.square(self.ys - self.pos[0][1]))
+            tf.square(self.ys - self.pos[0][1])
+        )
 
-        self.true_distances = tf.constant(self.dis_to_pred, dtype=tf.float32)
+        true_distances = tf.constant(dis_to_pred, dtype=tf.float32)
 
-        self.discounts = tf.constant(self.discounts, dtype=tf.float32)
-        self.discounted_distances = self.discounts * self.true_distances
+        discounts = tf.constant(discounts, dtype=tf.float32)
+        discounted_distances = discounts * true_distances
 
         self.loss = tf.losses.mean_squared_error(
-            self.discounted_distances, self.pred_distances, self.weights
+            discounted_distances, pred_distances, weights
         )
 
         # self.loss = tf.losses.mean_squared_error(
         #     tf.square(self.discounted_distances), tf.square(
         #         self.pred_distances), self.weights
         # )
+        l1_regularizer = tf.contrib.layers.l1_regularizer(
+            scale=0.005, scope=None
+        )
+        weights = tf.trainable_variables()  # all vars of your graph
+        regularization_penalty = tf.contrib.layers.apply_regularization(
+            l1_regularizer, weights)
 
-        self.optimizer = tf.train.AdamOptimizer(learning_rate=LEARNING_RATE)
-        self.train_step = self.optimizer.minimize(self.loss)
+        # this loss needs to be minimized
+        regularized_loss = self.loss + regularization_penalty
+
+        optimizer = tf.train.AdamOptimizer(learning_rate=LEARNING_RATE)
+        self.train_step = optimizer.minimize(self.loss)
 
         tf.global_variables_initializer().run(session=self.sess)
 
@@ -192,6 +200,10 @@ class Model(object):
                             self.ys: target_nodes[:, 1],
                             self.self_pos: [self.origin_pos],
                         })
+                    self.origin_pos[0] = min(
+                        self.x_range, max(self.origin_pos[0], 0.0))
+                    self.origin_pos[1] = min(
+                        self.y_range, max(self.origin_pos[1], 0.0))
             else:
                 for i in range(EPOCH):
                     loss, pos, _ = tf.get_default_session().run(
@@ -224,24 +236,24 @@ class Model(object):
     def use_gradient_desecent(self):
         self.using_gradient = True
 
-        self.weights, self.target_index, self.discounts = self.weigting_distances(
+        weights, self.target_index, discounts = self.weigting_distances(
             network=False)
-        self.dis_to_pred = self.distances[self.target_index]
+        dis_to_pred = self.distances[self.target_index]
 
         self.pos = tf.Variable(self.origin_pos, dtype=tf.float32)
         self.xs = tf.placeholder(tf.float32, shape=len(self.target_index))
         self.ys = tf.placeholder(tf.float32, shape=len(self.target_index))
 
-        self.pred_distances = tf.sqrt(
+        pred_distances = tf.sqrt(
             tf.square(self.xs - self.pos[0]) +
             tf.square(self.ys - self.pos[1]))
 
-        self.true_distances = tf.constant(self.dis_to_pred, dtype=tf.float32)
+        true_distances = tf.constant(dis_to_pred, dtype=tf.float32)
 
-        self.discounted_distances = self.discounts * self.true_distances
+        discounted_distances = discounts * true_distances
 
         self.loss = tf.losses.mean_squared_error(
-            self.discounted_distances, self.pred_distances, self.weights
+            discounted_distances, pred_distances, weights
         )
 
         # self.loss = tf.losses.mean_squared_error(
