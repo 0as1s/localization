@@ -10,7 +10,7 @@ from matplotlib import pyplot as plt
 from sympy import symbol, solve
 from collections import OrderedDict
 
-timesteps = 50
+timesteps = 30
 hops_limit = 3
 
 
@@ -49,7 +49,7 @@ class Trainer(object):
                 sorted_index = []
                 # 建立一个全局nodes与单个node需要的nodes的映射
                 nodes_map = {}
-                for hops in range(0, hops_limit + 1):
+                for hops in range(1, hops_limit + 1):
                     for j, h in enumerate(self.hops[i]):
                         if h == hops:
                             nodes_map[j] = len(sorted_index)

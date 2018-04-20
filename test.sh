@@ -1,4 +1,4 @@
 for i in $(seq 1 $1)
 do
-    python master.py;
+    python3 master.py;
 done  
