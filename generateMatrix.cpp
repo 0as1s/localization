@@ -130,7 +130,7 @@ int main(){
 	point.open("point.data", ios::out);
 	hop.open("hop.data", ios::out);
 	distance.open("distance.data", ios::out);
-	int count = 100;
+	int count = 1000;
 	;
 	while (count--){
 		Robot *probot = new Robot[RobotNum];

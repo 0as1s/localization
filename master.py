@@ -19,9 +19,9 @@ class Master(object):
         self.distances = np.loadtxt('distance.data')
         self.hops = np.loadtxt('hop.data')
 
-        self.nodes = self.nodes.reshape(100, 20, 2)
-        self.hops = self.hops.reshape(100, 20, 20)
-        self.distances = self.distances.reshape(100, 20, 20)
+        self.nodes = self.nodes.reshape(1000, 20, 2)
+        self.hops = self.hops.reshape(1000, 20, 20)
+        self.distances = self.distances.reshape(1000, 20, 20)
 
         self.blacklist = []
         for i, m in enumerate(self.hops):
@@ -46,17 +46,22 @@ class Master(object):
         beacons = self.nodes[i][beacon_index]
         trainer = Trainer(
             self.distances[i], self.hops[i], x_range, y_range, beacon_index, beacons, self.nodes[i], i)
-        loss = trainer.train()
+        loss, loss3 = trainer.train()
         # self.result[str(i) + str(beacon_index)] = loss
         fp = str(i)+str(beacon_index)+'.1.json'
         json.dump(loss, open(fp, 'w'))
 
+        fp = str(i)+str(beacon_index)+'.3.json'
+        json.dump(loss3, open(fp, 'w'))
+
         trainer = Trainer(
             self.distances[i], self.hops[i], x_range, y_range, beacon_index, beacons, self.nodes[i], i, using_net=False)
-        loss2 = trainer.train()
+        loss2, loss4 = trainer.train()
         # self.result[str(i) + str(beacon_index)] = loss
         fp = str(i)+str(beacon_index)+'.2.json'
         json.dump(loss2, open(fp, 'w'))
+        fp = str(i)+str(beacon_index)+'.4.json'
+        json.dump(loss4, open(fp, 'w'))
 
         return loss, loss2
         # print(loss)

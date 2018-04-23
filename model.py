@@ -114,12 +114,12 @@ class Model(object):
 
         self.optimizer = optimizer(learning_rate=LEARNING_RATE)
         self.train_step = self.optimizer.minimize(self.loss)
+
         tf.global_variables_initializer().run(session=self.sess)
 
     def weigting_distances(self, network=True):
         goal_weights = []
         index = []
-
         if self.update_times == 0:
             for i, d in enumerate(self.distances):
                 if self.hops[i] in (1, 2, 3):
@@ -134,7 +134,6 @@ class Model(object):
                 if self.hops[i] in (1, ):
                     goal_weights.append(0.4**(self.hops[i] - 1))
                     index.append(i)
-
             # if not self.using_net:
             #     for i in self.beacon_index:
             #         goal_weights.append(0.6**(self.hops[i] - 1))
@@ -154,7 +153,6 @@ class Model(object):
         with self.sess.as_default():
 
             pos_backup = self.origin_pos
-
             if self.origin_pos[0] < 0:
                 self.origin_pos[0] = self.x_range
             if self.origin_pos[0] > self.x_range:
@@ -214,12 +212,12 @@ class Model(object):
                         self.x_range, max(self.origin_pos[0], 0.0))
                     self.origin_pos[1] = min(
                         self.y_range, max(self.origin_pos[1], 0.0))
-
                     self.partial_update(
                         self.i, self.origin_pos[0], self.origin_pos[1])
                     x_input = np.array([
                         self.nodes[:, 0], self.nodes[:, 1], self.distances,
                     ]).flatten()
+
             else:
                 for i in range(EPOCH):
                     loss, pos, _ = tf.get_default_session().run(
@@ -240,8 +238,8 @@ class Model(object):
         self.origin_pos[0] = min(self.x_range, max(self.origin_pos[0], 0.0))
         self.origin_pos[1] = min(self.y_range, max(self.origin_pos[1], 0.0))
 
-        if self.update_times == timesteps:
-            return pos_backup, loss
+        # if self.update_times == timesteps:
+        #     return pos_backup, loss
         return self.origin_pos, loss
 
     def partial_update(self, i, x, y):

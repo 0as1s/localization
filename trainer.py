@@ -10,7 +10,7 @@ from matplotlib import pyplot as plt
 from sympy import symbol, solve
 from collections import OrderedDict
 
-timesteps = 30
+timesteps = 40
 hops_limit = 3
 
 
@@ -134,13 +134,16 @@ class Trainer(object):
             m = self.models[i]
             if m:
                 self.nodes[i][0], self.nodes[i][1] = m.origin_pos[0], m.origin_pos[1]
-        loss1 = np.mean(np.sqrt((self.nodes[:, 0] - self.true_nodes[:, 0]) ** 2 + (
-            self.nodes[:, 1] - self.true_nodes[:, 1]) ** 2))
+        dis = np.sqrt((self.nodes[:, 0] - self.true_nodes[:, 0]) ** 2 + (
+            self.nodes[:, 1] - self.true_nodes[:, 1]) ** 2)
+
+        loss1 = np.mean(dis)
+        loss2 = len(list(filter(lambda x: x < 0.2, dis))) / len(dis)
 
         # self.plot(show=False)
         # fp = str(self.i)+str(self.beacon_index)+'.pkl'
         # pickle.dump(losses, open(fp, 'wb'))
-        return loss1
+        return loss1, loss2
 
     def pos(self, xs, ys, ds):
         x1, x2, x3 = list(xs)

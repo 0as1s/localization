@@ -12,6 +12,16 @@ for j in jsons:
     scores1[str([i, index])] = json.load(open(j, 'r'))
 print(np.mean(list(scores1.values())))
 print(len(list(filter(lambda x: x[1] > 1, scores1.items())))/len(scores1))
+
+jsons = filter(lambda x: x.endswith('.3.json'), os.listdir())
+scores3 = OrderedDict()
+for j in jsons:
+    i = int(j.split('[')[0])
+    mid = j.split('[')[1].split(']')[0]
+    index = json.loads('['+mid+']')
+    scores3[str([i, index])] = json.load(open(j, 'r'))
+print(np.mean(list(scores3.values())))
+
 print('-------------------')
 
 jsons = filter(lambda x: x.endswith('.2.json'), os.listdir())
@@ -24,6 +34,21 @@ for j in jsons:
 print(np.mean(list(scores2.values())))
 print(len(list(filter(lambda x: x[1] > 1, scores2.items())))/len(scores2))
 
+jsons = filter(lambda x: x.endswith('.4.json'), os.listdir())
+scores4 = OrderedDict()
+for j in jsons:
+    i = int(j.split('[')[0])
+    mid = j.split('[')[1].split(']')[0]
+    index = json.loads('['+mid+']')
+    scores4[str([i, index])] = json.load(open(j, 'r'))
+print(np.mean(list(scores4.values())))
+
+
 scores = np.array([list(scores1.values()), list(scores2.values())])
 scores = scores.T
-print(len(list(filter(lambda x: x[0] < x[1], scores))))
+print(len(list(filter(lambda x: x[0] < x[1], scores)))/len(scores))
+
+scores = np.array([list(scores3.values()), list(scores4.values())])
+scores = scores.T
+print(len(list(filter(lambda x: x[0] < x[1], scores)))/len(scores))
+print('=====================')
