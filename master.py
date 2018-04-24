@@ -46,22 +46,25 @@ class Master(object):
         beacons = self.nodes[i][beacon_index]
         trainer = Trainer(
             self.distances[i], self.hops[i], x_range, y_range, beacon_index, beacons, self.nodes[i], i)
-        loss, loss3 = trainer.train()
+        loss, loss3, nodes = trainer.train()
         # self.result[str(i) + str(beacon_index)] = loss
         fp = str(i)+str(beacon_index)+'.1.json'
         json.dump(loss, open(fp, 'w'))
-
         fp = str(i)+str(beacon_index)+'.3.json'
         json.dump(loss3, open(fp, 'w'))
+        fp = str(i)+str(beacon_index)+'.1.npy'
+        np.save(fp, nodes)
 
         trainer = Trainer(
             self.distances[i], self.hops[i], x_range, y_range, beacon_index, beacons, self.nodes[i], i, using_net=False)
-        loss2, loss4 = trainer.train()
+        loss2, loss4, nodes = trainer.train()
         # self.result[str(i) + str(beacon_index)] = loss
         fp = str(i)+str(beacon_index)+'.2.json'
         json.dump(loss2, open(fp, 'w'))
         fp = str(i)+str(beacon_index)+'.4.json'
         json.dump(loss4, open(fp, 'w'))
+        fp = str(i)+str(beacon_index)+'.2.npy'
+        np.save(fp, nodes)
 
         return loss, loss2
         # print(loss)

@@ -130,10 +130,10 @@ class Trainer(object):
                 # print("==========")
                 # self.plot()
         self.nodes = new_nodes
-        for i in self.models.keys():
-            m = self.models[i]
-            if m:
-                self.nodes[i][0], self.nodes[i][1] = m.origin_pos[0], m.origin_pos[1]
+        # for i in self.models.keys():
+        #     m = self.models[i]
+        #     if m:
+        #         self.nodes[i][0], self.nodes[i][1] = m.origin_pos[0], m.origin_pos[1]
         dis = np.sqrt((self.nodes[:, 0] - self.true_nodes[:, 0]) ** 2 + (
             self.nodes[:, 1] - self.true_nodes[:, 1]) ** 2)
 
@@ -143,7 +143,7 @@ class Trainer(object):
         # self.plot(show=False)
         # fp = str(self.i)+str(self.beacon_index)+'.pkl'
         # pickle.dump(losses, open(fp, 'wb'))
-        return loss1, loss2
+        return loss1, loss2, self.nodes
 
     def pos(self, xs, ys, ds):
         x1, x2, x3 = list(xs)

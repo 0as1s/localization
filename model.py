@@ -152,7 +152,6 @@ class Model(object):
 
         with self.sess.as_default():
 
-            pos_backup = self.origin_pos
             if self.origin_pos[0] < 0:
                 self.origin_pos[0] = self.x_range
             if self.origin_pos[0] > self.x_range:
