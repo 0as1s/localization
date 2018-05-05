@@ -43,12 +43,13 @@ for j in jsons:
     scores4[str([i, index])] = json.load(open(j, 'r'))
 print(np.mean(list(scores4.values())))
 
+print('-------------------')
 
-scores = np.array([list(scores1.values()), list(scores2.values())])
-scores = scores.T
-print(len(list(filter(lambda x: x[0] < x[1], scores)))/len(scores))
+scores = np.array(list(zip(list(scores1.values()), list(scores3.values()))))
+print(len(list(filter(lambda x: x[0] - x[1] < 0.01, scores)))/len(scores))
 
-scores = np.array([list(scores3.values()), list(scores4.values())])
-scores = scores.T
-print(len(list(filter(lambda x: x[0] < x[1], scores)))/len(scores))
+print(len(list(filter(lambda x: x[1] - x[0] > 0.1, scores)))/len(scores))
+
+scores = np.array(list(zip(list(scores2.values()), list(scores4.values()))))
+print(len(list(filter(lambda x: x[0] <= x[1], scores)))/len(scores))
 print('=====================')

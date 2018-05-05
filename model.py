@@ -4,7 +4,6 @@ import numpy as np
 import os
 
 
-DISTANCE_WEIGHTING = 'ONLY_NEAR'
 LEARNING_RATE = 0.01
 DISCOUNT = 0.95
 EPOCH = 50
@@ -29,10 +28,10 @@ class Model(object):
     # 对于预测距离与跳数不符的惩罚
     # 把loss作为权重
     def __init__(self, nodes, distances, hops, x_range, y_range, beacon_index,
-                 nodes_map, pos, i, using_net=True):
+                 nodes_map, pos, i, kwargs):
 
         self.using_gradient = False
-        self.using_net = using_net
+        self.using_net = kwargs.get('using_net')
         self.i = i
         self.origin_pos = pos
         self.beacon_index = beacon_index
@@ -47,8 +46,9 @@ class Model(object):
         self.nodes_map = nodes_map
         self.update_times = 0
         self.sess = tf.Session(config=config)
+        self.kwargs = kwargs
 
-        if using_net:
+        if self.using_net:
             self.use_net(nodes, distances, hops, x_range, y_range, beacon_index,
                          nodes_map, pos, i, )
         else:
@@ -61,20 +61,23 @@ class Model(object):
         self.x = tf.placeholder(tf.float32, shape=[1, 3 * self.n_nodes])
 
         activation = tf.nn.sigmoid
+        if 'activation' in self.kwargs.keys():
+            activation = self.kwargs['activation']
+
         weights, self.target_index, discounts = self.weigting_distances()
         dis_to_pred = self.distances[self.target_index]
 
         dense1 = tf.layers.dense(
             self.x, 3 * self.n_nodes, activation=activation)
 
-        # dense2 = tf.layers.dense(
-        #     dense1, 3 * self.n_nodes, activation=activation)
+        dense2 = tf.layers.dense(
+            dense1, 3 * self.n_nodes, activation=activation)
 
-        # dense3 = tf.layers.dense(
-        #     dense2, 3 * self.n_nodes, activation=activation)
+        dense3 = tf.layers.dense(
+            dense2, 3 * self.n_nodes, activation=activation)
 
         dense4 = tf.layers.dense(
-            dense1, 3 * self.n_nodes, activation=activation)
+            dense3, 3 * self.n_nodes, activation=activation)
 
         self.self_pos = tf.placeholder(tf.float32, shape=[1, 2])
         dense4_self_pos = tf.concat([dense4, self.self_pos], 1)
@@ -98,31 +101,67 @@ class Model(object):
             discounted_distances, pred_distances, weights
         )
 
-        # self.loss = tf.losses.mean_squared_error(
-        #     tf.square(self.discounted_distances), tf.square(
-        #         self.pred_distances), self.weights
-        # )
-        l1_regularizer = tf.contrib.layers.l1_regularizer(
-            scale=0.005, scope=None
-        )
-        weights = tf.trainable_variables()  # all vars of your graph
-        regularization_penalty = tf.contrib.layers.apply_regularization(
-            l1_regularizer, weights)
+        if self.kwargs.get('l1_regular'):
+            l1_regularizer = tf.contrib.layers.l1_regularizer(
+                scale=0.005, scope=None
+            )
+            weights = tf.trainable_variables()  # all vars of your graph
+            regularization_penalty = tf.contrib.layers.apply_regularization(
+                l1_regularizer, weights)
 
-        # this loss needs to be minimized
-        regularized_loss = self.loss + regularization_penalty
+            # this loss needs to be minimized
+            self.loss = self.loss + regularization_penalty
 
         self.optimizer = optimizer(learning_rate=LEARNING_RATE)
         self.train_step = self.optimizer.minimize(self.loss)
 
         tf.global_variables_initializer().run(session=self.sess)
 
+    def use_gradient_desecent(self):
+        global optimizer
+
+        self.using_gradient = True
+        weights, self.target_index, discounts = self.weigting_distances(
+            network=False)
+        dis_to_pred = self.distances[self.target_index]
+
+        self.pos = tf.Variable(self.origin_pos, dtype=tf.float32)
+        self.xs = tf.placeholder(tf.float32, shape=len(self.target_index))
+        self.ys = tf.placeholder(tf.float32, shape=len(self.target_index))
+
+        pred_distances = tf.sqrt(
+            tf.square(self.xs - self.pos[0]) +
+            tf.square(self.ys - self.pos[1]))
+
+        true_distances = tf.constant(dis_to_pred, dtype=tf.float32)
+
+        discounted_distances = discounts * true_distances
+
+        self.loss = tf.losses.mean_squared_error(
+            discounted_distances, pred_distances, weights
+        )
+
+        # self.loss = tf.losses.mean_squared_error(
+        #     tf.square(self.discounted_distances), tf.square(
+        #         self.pred_distances), self.weights
+        # )
+
+        self.optimizer = optimizer(learning_rate=LEARNING_RATE)
+        self.train_step = self.optimizer.minimize(self.loss)
+        tf.global_variables_initializer().run(session=self.sess)
+
     def weigting_distances(self, network=True):
         goal_weights = []
         index = []
+
+        if self.kwargs.get('only_near'):
+            hops_limit = (1,)
+        else:
+            hops_limit = (1, 2, 3)
+
         if self.update_times == 0:
             for i, d in enumerate(self.distances):
-                if self.hops[i] in (1, 2, 3):
+                if self.hops[i] in hops_limit:
                     goal_weights.append(0.4**(self.hops[i] - 1))
                     index.append(i)
             for i in self.beacon_index:
@@ -152,47 +191,55 @@ class Model(object):
 
         with self.sess.as_default():
 
-            if self.origin_pos[0] < 0:
-                self.origin_pos[0] = self.x_range
-            if self.origin_pos[0] > self.x_range:
-                self.origin_pos[0] = 0
-            if self.origin_pos[1] < 0:
-                self.origin_pos[1] = self.y_range
-            if self.origin_pos[0] > self.y_range:
-                self.origin_pos[1] = 0
-            self.partial_update(
-                self.i, self.origin_pos[0], self.origin_pos[1])
+            if self.kwargs.get('manage_out_of_range'):
+                if self.origin_pos[0] < 0:
+                    self.origin_pos[0] = self.x_range
+                if self.origin_pos[0] > self.x_range:
+                    self.origin_pos[0] = 0
+                if self.origin_pos[1] < 0:
+                    self.origin_pos[1] = self.y_range
+                if self.origin_pos[0] > self.y_range:
+                    self.origin_pos[1] = 0
+                self.partial_update(
+                    self.i, self.origin_pos[0], self.origin_pos[1])
 
             if self.update_times == timesteps - tuning_timesteps:
                 self.use_gradient_desecent()
 
-            if self.update_times == timesteps - 1:
-                right = 0
-                wrong = 0
-                for i, node in enumerate(self.nodes):
-                    hop = self.hops[i]
-                    dis = np.sqrt(
-                        (node[0] - self.origin_pos[0])**2 + (node[1] - self.origin_pos[1])**2)
+            if self.kwargs.get('manage_symmetry'):
+                if self.update_times == timesteps - 1:
+                    right = 0
+                    wrong = 0
+                    for i, node in enumerate(self.nodes):
+                        hop = self.hops[i]
+                        dis = np.sqrt(
+                            (node[0] - self.origin_pos[0])**2 + (node[1] - self.origin_pos[1])**2)
 
-                    if dis < 4.1:
-                        if hop == 1:
-                            right += 1
-                        else:
-                            wrong += 1
-
-                    if hop == 1:
                         if dis < 4.1:
-                            right += 1
-                        else:
-                            wrong += 1
+                            if hop == 1:
+                                right += 1
+                            else:
+                                wrong += 1
 
-                if wrong > right:
-                    self.origin_pos[0] = self.x_range - self.origin_pos[0]
-                    self.origin_pos[1] = self.y_range - self.origin_pos[1]
-                    self.partial_update(
-                        self.i, self.origin_pos[0], self.origin_pos[1])
-                if not self.using_gradient:
-                    self.use_gradient_desecent()
+                        if hop == 1:
+                            if dis < 4.1:
+                                right += 1
+                            else:
+                                wrong += 1
+
+                    if wrong > right:
+                        if self.kwargs.get('cluster_symmetry'):
+                            self.origin_pos[0], self.origin_pos[1] = self.find_symmetry(
+                                self.origin_pos[0], self.origin_pos[1])
+                        else:
+                            self.origin_pos[0] = self.x_range - \
+                                self.origin_pos[0]
+                            self.origin_pos[1] = self.y_range - \
+                                self.origin_pos[1]
+                        self.partial_update(
+                            self.i, self.origin_pos[0], self.origin_pos[1])
+                    if not self.using_gradient:
+                        self.use_gradient_desecent()
 
             target_nodes = self.nodes[self.target_index]
             if not self.using_gradient:
@@ -237,8 +284,6 @@ class Model(object):
         self.origin_pos[0] = min(self.x_range, max(self.origin_pos[0], 0.0))
         self.origin_pos[1] = min(self.y_range, max(self.origin_pos[1], 0.0))
 
-        # if self.update_times == timesteps:
-        #     return pos_backup, loss
         return self.origin_pos, loss
 
     def partial_update(self, i, x, y):
@@ -246,35 +291,9 @@ class Model(object):
             self.nodes[self.nodes_map[i]][0] = x
             self.nodes[self.nodes_map[i]][1] = y
 
-    def use_gradient_desecent(self):
-        global optimizer
-
-        self.using_gradient = True
-        weights, self.target_index, discounts = self.weigting_distances(
-            network=False)
-        dis_to_pred = self.distances[self.target_index]
-
-        self.pos = tf.Variable(self.origin_pos, dtype=tf.float32)
-        self.xs = tf.placeholder(tf.float32, shape=len(self.target_index))
-        self.ys = tf.placeholder(tf.float32, shape=len(self.target_index))
-
-        pred_distances = tf.sqrt(
-            tf.square(self.xs - self.pos[0]) +
-            tf.square(self.ys - self.pos[1]))
-
-        true_distances = tf.constant(dis_to_pred, dtype=tf.float32)
-
-        discounted_distances = discounts * true_distances
-
-        self.loss = tf.losses.mean_squared_error(
-            discounted_distances, pred_distances, weights
-        )
-
-        # self.loss = tf.losses.mean_squared_error(
-        #     tf.square(self.discounted_distances), tf.square(
-        #         self.pred_distances), self.weights
-        # )
-
-        self.optimizer = optimizer(learning_rate=LEARNING_RATE)
-        self.train_step = self.optimizer.minimize(self.loss)
-        tf.global_variables_initializer().run(session=self.sess)
+    def find_symmetry(self, x, y):
+        index = self.hops[self.hops == 1]
+        nodes = self.nodes[index]
+        center_x = np.mean(nodes[:, 0])
+        center_y = np.mean(nodes[:, 1])
+        return center_x + (center_x - x), center_y + (center_y - y)

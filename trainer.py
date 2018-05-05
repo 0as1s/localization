@@ -2,6 +2,7 @@
 import numpy as np
 import pickle
 import matplotlib
+import os
 
 matplotlib.use("AGG")
 
@@ -10,7 +11,7 @@ from matplotlib import pyplot as plt
 from sympy import symbol, solve
 from collections import OrderedDict
 
-timesteps = 40
+timesteps = 60
 hops_limit = 3
 
 
@@ -18,7 +19,7 @@ hops_limit = 3
 # 考虑加入降噪层
 class Trainer(object):
     def __init__(self, distances, hops, x_range, y_range, beacon_index,
-                 beacons, nodes, i, using_net=True):
+                 beacons, nodes, i, kwargs):
 
         self.i = i
         self.distances = distances
@@ -32,12 +33,15 @@ class Trainer(object):
 
         self.models = OrderedDict()
         self.hops = hops
-        self.using_net = using_net
 
-        self.initialize_nodes()
-        self.initialize_models()
+        self.d = '_'.join(sorted(kwargs.keys()))
+        if not os.path.exists(self.d):
+            os.mkdir(self.d)
 
-    def initialize_models(self):
+        self.initialize_nodes(kwargs)
+        self.initialize_models(kwargs)
+
+    def initialize_models(self, kwargs):
         nodes_index = list(range(self.n_nodes))
         hops = np.copy(self.hops)
         hops[hops == -1] = 999
@@ -69,26 +73,27 @@ class Trainer(object):
                 pos = np.array(self.nodes[i])
                 beacon_index = [len(sorted_index) + i for i in range(0, 3)]
                 self.models[i] = Model(
-                    nodes, dis, hops, self.x_range, self.y_range, beacon_index, nodes_map, pos, i, using_net=self.using_net)
+                    nodes, dis, hops, self.x_range, self.y_range, beacon_index, nodes_map, pos, i, kwargs)
 
             else:
                 self.models[i] = None
 
     # 随机生成，后续可以优化为先pre_train，可能会更容易收敛到解
-    def initialize_nodes(self):
+    def initialize_nodes(self, kwargs):
         xs = self.beacons[:, 0]
         ys = self.beacons[:, 1]
         self.nodes = np.random.random((self.n_nodes, 2))
         self.nodes[:, 0] *= self.x_range
         self.nodes[:, 1] *= self.y_range
-        for i in range(self.n_nodes):
-            hops = self.hops[i, self.beacon_index]
-            ds = self.distances[i, self.beacon_index]
-            ds = [ds[j]*(DISCOUNT**(hops[j]-1)) for j in range(len(ds))]
-            if i in self.beacon_index:
-                self.nodes[i] = self.beacons[self.beacon_index.index(i)]
-            else:
-                self.nodes[i, 0], self.nodes[i, 1] = self.pos(xs, ys, ds)
+        if kwargs.get('pre_train'):
+            for i in range(self.n_nodes):
+                hops = self.hops[i, self.beacon_index]
+                ds = self.distances[i, self.beacon_index]
+                ds = [ds[j]*(DISCOUNT**(hops[j]-1)) for j in range(len(ds))]
+                if i in self.beacon_index:
+                    self.nodes[i] = self.beacons[self.beacon_index.index(i)]
+                else:
+                    self.nodes[i, 0], self.nodes[i, 1] = self.pos(xs, ys, ds)
         for i in range(len(self.beacons)):
             self.nodes[self.beacon_index[i]] = self.beacons[i]
         # self.plot()
@@ -100,7 +105,7 @@ class Trainer(object):
 
         sequence = list(range(self.n_nodes)) * timesteps
         np.random.shuffle(sequence)
-        # losses = []
+        losses = []
 
         for t in range(timesteps):
             left = list(range(self.n_nodes))
@@ -120,15 +125,14 @@ class Trainer(object):
                 else:
                     new_nodes[i] = self.beacons[self.beacon_index.index(i)]
 
-            if (t+1) % 10 == 0:
-                self.nodes = new_nodes
-                loss1 = np.mean(np.sqrt((self.nodes[:, 0] - self.true_nodes[:, 0]) ** 2 + (
-                    self.nodes[:, 1] - self.true_nodes[:, 1]) ** 2))
-                # losses.append(loss1)
-                # print(loss1)
-                # print(dis_loss)
-                # print("==========")
-                # self.plot()
+            self.nodes = new_nodes
+            loss1 = np.mean(np.sqrt((self.nodes[:, 0] - self.true_nodes[:, 0]) ** 2 + (
+                self.nodes[:, 1] - self.true_nodes[:, 1]) ** 2))
+            losses.append(loss1)
+            # print(loss1)
+            # print(dis_loss)
+            # print("==========")
+            # self.plot()
         self.nodes = new_nodes
         # for i in self.models.keys():
         #     m = self.models[i]
@@ -141,8 +145,8 @@ class Trainer(object):
         loss2 = len(list(filter(lambda x: x < 0.2, dis))) / len(dis)
 
         # self.plot(show=False)
-        # fp = str(self.i)+str(self.beacon_index)+'.pkl'
-        # pickle.dump(losses, open(fp, 'wb'))
+        fp = os.path.join(self.d, str(self.i)+str(self.beacon_index)+'.pkl')
+        pickle.dump(losses, open(fp, 'wb'))
         return loss1, loss2, self.nodes
 
     def pos(self, xs, ys, ds):

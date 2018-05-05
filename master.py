@@ -11,6 +11,30 @@ y_range = 10.0
 TEST_TIMES = 4
 TEST_PER_IMAGE = 1
 
+# setting:
+# using_net
+# manage_out_of_range
+# pre_train
+# only_near
+# using_net
+# cluster_symmetry
+# manage_symmetry
+# l1_regular
+# activation: None, tf.nn.sigmoid, tf.nn.tanh
+
+settings1 = {
+    'manage_out_of_range': True,
+    'pre_train': True,
+    'using_net': True,
+    'manage_symmetry': True,
+}
+
+settings2 = {
+    'manage_out_of_range': True,
+    'pre_train': True,
+    'manage_symmetry': True,
+}
+
 
 class Master(object):
     def __init__(self):
@@ -27,14 +51,14 @@ class Master(object):
         for i, m in enumerate(self.hops):
             if any(map(lambda x: x == -1, m.flatten())):
                 self.blacklist.append(i)
-            # for hops in m:
-            #     count = 0
-            #     for h in hops:
-            #         if h == 1:
-            #             count += 1
-            #     if count <= 2:
-            #         self.blacklist.append(i)
-            #         break
+            for hops in m:
+                count = 0
+                for h in hops:
+                    if h == 1:
+                        count += 1
+                if count <= 2:
+                    self.blacklist.append(i)
+                    break
 
     def run(self, i=None, beacon_index=None):
 
@@ -45,7 +69,7 @@ class Master(object):
         print(beacon_index)
         beacons = self.nodes[i][beacon_index]
         trainer = Trainer(
-            self.distances[i], self.hops[i], x_range, y_range, beacon_index, beacons, self.nodes[i], i)
+            self.distances[i], self.hops[i], x_range, y_range, beacon_index, beacons, self.nodes[i], i, settings1)
         loss, loss3, nodes = trainer.train()
         # self.result[str(i) + str(beacon_index)] = loss
         fp = str(i)+str(beacon_index)+'.1.json'
@@ -56,7 +80,7 @@ class Master(object):
         np.save(fp, nodes)
 
         trainer = Trainer(
-            self.distances[i], self.hops[i], x_range, y_range, beacon_index, beacons, self.nodes[i], i, using_net=False)
+            self.distances[i], self.hops[i], x_range, y_range, beacon_index, beacons, self.nodes[i], i, settings2)
         loss2, loss4, nodes = trainer.train()
         # self.result[str(i) + str(beacon_index)] = loss
         fp = str(i)+str(beacon_index)+'.2.json'
@@ -96,9 +120,9 @@ if __name__ == '__main__':
                     k2 = (ys[2] - ys[0])/(xs[2]-xs[0])
                     k3 = (ys[2] - ys[1])/(xs[2]-xs[1])
 
-                    flag1 = not (0.6 < abs(k1/k2) < 1.4)
-                    flag2 = not (0.6 < abs(k1/k3) < 1.4)
-                    flag3 = not (0.6 < abs(k2/k3) < 1.4)
+                    flag1 = not (0.8 < abs(k1/k2) < 1.2)
+                    flag2 = not (0.8 < abs(k1/k3) < 1.2)
+                    flag3 = not (0.8 < abs(k2/k3) < 1.2)
 
                     flag4 = m.distances[i][beacon_index[0]
                                            ][beacon_index[1]] > 3
