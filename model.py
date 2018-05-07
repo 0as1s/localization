@@ -7,8 +7,8 @@ import os
 LEARNING_RATE = 0.01
 DISCOUNT = 0.95
 EPOCH = 50
-timesteps = 30
-tuning_timesteps = 20
+timesteps = 20
+tuning_timesteps = 15
 optimizer = tf.train.AdamOptimizer
 
 config = tf.ConfigProto(device_count={'GPU': 0})
@@ -64,20 +64,20 @@ class Model(object):
         if 'activation' in self.kwargs.keys():
             activation = self.kwargs['activation']
 
-        weights, self.target_index, discounts = self.weigting_distances()
+        weights, self.target_index, discounts = self.weighting_distances()
         dis_to_pred = self.distances[self.target_index]
 
         dense1 = tf.layers.dense(
             self.x, 3 * self.n_nodes, activation=activation)
 
-        dense2 = tf.layers.dense(
-            dense1, 3 * self.n_nodes, activation=activation)
+        # dense2 = tf.layers.dense(
+        #    dense1, 3 * self.n_nodes, activation=activation)
 
-        dense3 = tf.layers.dense(
-            dense2, 3 * self.n_nodes, activation=activation)
+        # dense3 = tf.layers.dense(
+        #    dense2, 3 * self.n_nodes, activation=activation)
 
         dense4 = tf.layers.dense(
-            dense3, 3 * self.n_nodes, activation=activation)
+            dense1, 3 * self.n_nodes, activation=activation)
 
         self.self_pos = tf.placeholder(tf.float32, shape=[1, 2])
         dense4_self_pos = tf.concat([dense4, self.self_pos], 1)
@@ -121,8 +121,7 @@ class Model(object):
         global optimizer
 
         self.using_gradient = True
-        weights, self.target_index, discounts = self.weigting_distances(
-            network=False)
+        weights, self.target_index, discounts = self.weighting_distances()
         dis_to_pred = self.distances[self.target_index]
 
         self.pos = tf.Variable(self.origin_pos, dtype=tf.float32)
@@ -150,7 +149,7 @@ class Model(object):
         self.train_step = self.optimizer.minimize(self.loss)
         tf.global_variables_initializer().run(session=self.sess)
 
-    def weigting_distances(self, network=True):
+    def weighting_distances(self):
         goal_weights = []
         index = []
 

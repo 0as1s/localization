@@ -20,18 +20,21 @@ TEST_PER_IMAGE = 1
 # cluster_symmetry
 # manage_symmetry
 # l1_regular
+# mean_pos
 # activation: None, tf.nn.sigmoid, tf.nn.tanh
 
 settings1 = {
     'manage_out_of_range': True,
     'pre_train': True,
     'using_net': True,
+    # 'mean_pos': True,
     'manage_symmetry': True,
 }
 
 settings2 = {
     'manage_out_of_range': True,
     'pre_train': True,
+    # 'mean_pos': True,
     'manage_symmetry': True,
 }
 
@@ -120,9 +123,9 @@ if __name__ == '__main__':
                     k2 = (ys[2] - ys[0])/(xs[2]-xs[0])
                     k3 = (ys[2] - ys[1])/(xs[2]-xs[1])
 
-                    flag1 = not (0.8 < abs(k1/k2) < 1.2)
-                    flag2 = not (0.8 < abs(k1/k3) < 1.2)
-                    flag3 = not (0.8 < abs(k2/k3) < 1.2)
+                    flag1 = not (0.6 < abs(k1/k2) < 1.4)
+                    flag2 = not (0.6 < abs(k1/k3) < 1.4)
+                    flag3 = not (0.6 < abs(k2/k3) < 1.4)
 
                     flag4 = m.distances[i][beacon_index[0]
                                            ][beacon_index[1]] > 3

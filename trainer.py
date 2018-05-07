@@ -11,7 +11,7 @@ from matplotlib import pyplot as plt
 from sympy import symbol, solve
 from collections import OrderedDict
 
-timesteps = 60
+timesteps = 20
 hops_limit = 3
 
 
@@ -31,12 +31,17 @@ class Trainer(object):
         self.nodes = []
         self.true_nodes = nodes
 
+        self.kwargs = kwargs
         self.models = OrderedDict()
         self.hops = hops
 
         self.d = '_'.join(sorted(kwargs.keys()))
         if not os.path.exists(self.d):
             os.mkdir(self.d)
+
+        self.imagedir = 'images_' + '_'.join(sorted(kwargs.keys()))
+        if not os.path.exists(self.imagedir):
+            os.mkdir(self.imagedir)
 
         self.initialize_nodes(kwargs)
         self.initialize_models(kwargs)
@@ -93,7 +98,12 @@ class Trainer(object):
                 if i in self.beacon_index:
                     self.nodes[i] = self.beacons[self.beacon_index.index(i)]
                 else:
-                    self.nodes[i, 0], self.nodes[i, 1] = self.pos(xs, ys, ds)
+                    if self.kwargs.get('mean_pos'):
+                        self.nodes[i, 0], self.nodes[i,
+                                                     1] = self.mean_pos(xs, ys, ds)
+                    else:
+                        self.nodes[i, 0], self.nodes[i,
+                                                     1] = self.pos(xs, ys, ds)
         for i in range(len(self.beacons)):
             self.nodes[self.beacon_index[i]] = self.beacons[i]
         # self.plot()
@@ -134,25 +144,48 @@ class Trainer(object):
             # print("==========")
             # self.plot()
         self.nodes = new_nodes
-        # for i in self.models.keys():
-        #     m = self.models[i]
-        #     if m:
-        #         self.nodes[i][0], self.nodes[i][1] = m.origin_pos[0], m.origin_pos[1]
+        for i in self.models.keys():
+            m = self.models[i]
+            if m:
+                self.nodes[i][0], self.nodes[i][1] = m.origin_pos[0], m.origin_pos[1]
         dis = np.sqrt((self.nodes[:, 0] - self.true_nodes[:, 0]) ** 2 + (
             self.nodes[:, 1] - self.true_nodes[:, 1]) ** 2)
 
         loss1 = np.mean(dis)
         loss2 = len(list(filter(lambda x: x < 0.2, dis))) / len(dis)
 
-        # self.plot(show=False)
+        self.plot(show=False)
         fp = os.path.join(self.d, str(self.i)+str(self.beacon_index)+'.pkl')
         pickle.dump(losses, open(fp, 'wb'))
         return loss1, loss2, self.nodes
 
-    def pos(self, xs, ys, ds):
-        x1, x2, x3 = list(xs)
-        y1, y2, y3 = list(ys)
-        d1, d2, d3 = list(ds)
+    def mean_pos(self, xs, ys, ds):
+        x1, y1 = self.pos(xs, ys, ds, last=1, sort=False)
+        x2, y2 = self.pos(xs, ys, ds, last=2, sort=False)
+        x3, y3 = self.pos(xs, ys, ds, last=3, sort=False)
+        # print((x1+x1+x3)/3, (y1+y2+y3)/3)
+        return (x1+x1+x3)/3, (y1+y2+y3)/3
+
+    def pos(self, xs, ys, ds, last=3, sort=True):
+        if not sort:
+            if last == 1:
+                x2, x3, x1 = list(xs)
+                y2, y3, y1 = list(ys)
+                d2, d3, d1 = ds
+            elif last == 2:
+                x3, x1, x2 = list(xs)
+                y3, y1, y2 = list(ys)
+                d3, d1, d2 = ds
+            else:
+                x1, x2, x3 = list(xs)
+                y1, y2, y3 = list(ys)
+                d1, d2, d3 = ds
+        else:
+            index = np.argsort(ds)
+            x1, x2, x3 = list(xs[index])
+            y1, y2, y3 = list(ys[index])
+            d1, d2, d3 = list(np.array(ds)[index])
+
         x = symbol.Symbol('x')
         y = symbol.Symbol('y')
         sol = solve(
@@ -201,6 +234,6 @@ class Trainer(object):
             ax.annotate(str(i), (self.true_nodes[i, 0], self.true_nodes[i, 1]))
         fp = str(self.i)+str(self.beacon_index)+'.png'
         # fp = str(datetime.now())[:-7]+'.png'
-        fig.savefig(fp)
+        fig.savefig(os.path.join(self.imagedir, fp))
         if show:
             plt.show()
