@@ -8,8 +8,12 @@ from multiprocessing import Pool, cpu_count
 # batch_size = 20
 x_range = 10.0
 y_range = 10.0
-TEST_TIMES = 4
+TEST_TIMES = 7
 TEST_PER_IMAGE = 1
+IMAGES = 1000
+NODES = 20
+DISTANCE = 4.1
+NOISE = 0.05
 
 # setting:
 # using_net
@@ -21,21 +25,28 @@ TEST_PER_IMAGE = 1
 # manage_symmetry
 # l1_regular
 # mean_pos
+# noise
 # activation: None, tf.nn.sigmoid, tf.nn.tanh
+# always_net
 
 settings1 = {
-    'manage_out_of_range': True,
+    # 'manage_out_of_range': True,
     'pre_train': True,
     'using_net': True,
     # 'mean_pos': True,
-    'manage_symmetry': True,
+    # 'manage_symmetry': True,
+    'always_net': True,
 }
 
+
 settings2 = {
-    'manage_out_of_range': True,
     'pre_train': True,
+    'using_net': True,
+    # 'manage_out_of_range': True,
+    # 'using_net': True,
     # 'mean_pos': True,
-    'manage_symmetry': True,
+    # 'manage_symmetry': True,
+    # 'noise': True,
 }
 
 
@@ -46,9 +57,9 @@ class Master(object):
         self.distances = np.loadtxt('distance.data')
         self.hops = np.loadtxt('hop.data')
 
-        self.nodes = self.nodes.reshape(1000, 20, 2)
-        self.hops = self.hops.reshape(1000, 20, 20)
-        self.distances = self.distances.reshape(1000, 20, 20)
+        self.nodes = self.nodes.reshape(IMAGES, NODES, 2)
+        self.hops = self.hops.reshape(IMAGES, NODES, NODES)
+        self.distances = self.distances.reshape(IMAGES, NODES, NODES)
 
         self.blacklist = []
         for i, m in enumerate(self.hops):
@@ -82,8 +93,12 @@ class Master(object):
         fp = str(i)+str(beacon_index)+'.1.npy'
         np.save(fp, nodes)
 
+        distance = self.distances[i]
+        if settings2.get('noise'):
+            noise = (np.random.random(distance.shape) - 0.5) / (0.5 / NOISE)
+            distance += noise
         trainer = Trainer(
-            self.distances[i], self.hops[i], x_range, y_range, beacon_index, beacons, self.nodes[i], i, settings2)
+            distance, self.hops[i], x_range, y_range, beacon_index, beacons, self.nodes[i], i, settings2)
         loss2, loss4, nodes = trainer.train()
         # self.result[str(i) + str(beacon_index)] = loss
         fp = str(i)+str(beacon_index)+'.2.json'
@@ -102,7 +117,7 @@ class Master(object):
 if __name__ == '__main__':
     m = Master()
     # m.run()
-    with Pool(cpu_count() // 2) as p:
+    with Pool(cpu_count() - 1) as p:
         results = []
         for t1 in range(TEST_TIMES):
             i = np.random.randint(len(m.distances))
@@ -123,16 +138,16 @@ if __name__ == '__main__':
                     k2 = (ys[2] - ys[0])/(xs[2]-xs[0])
                     k3 = (ys[2] - ys[1])/(xs[2]-xs[1])
 
-                    flag1 = not (0.6 < abs(k1/k2) < 1.4)
-                    flag2 = not (0.6 < abs(k1/k3) < 1.4)
-                    flag3 = not (0.6 < abs(k2/k3) < 1.4)
+                    flag1 = not (0.5 < abs(k1/k2) < 1.5)
+                    flag2 = not (0.5 < abs(k1/k3) < 1.5)
+                    flag3 = not (0.5 < abs(k2/k3) < 1.5)
 
                     flag4 = m.distances[i][beacon_index[0]
-                                           ][beacon_index[1]] > 3
+                                           ][beacon_index[1]] > DISTANCE
                     flag5 = m.distances[i][beacon_index[1]
-                                           ][beacon_index[2]] > 3
+                                           ][beacon_index[2]] > DISTANCE
                     flag6 = m.distances[i][beacon_index[0]
-                                           ][beacon_index[2]] > 3
+                                           ][beacon_index[2]] > DISTANCE
                     if flag1 and flag2 and flag3 and flag4 and flag5 and flag6:
                         break
                 results.append(p.apply_async(m.run, args=(i, beacon_index)))

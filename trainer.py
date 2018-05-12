@@ -11,7 +11,7 @@ from matplotlib import pyplot as plt
 from sympy import symbol, solve
 from collections import OrderedDict
 
-timesteps = 20
+timesteps = 30
 hops_limit = 3
 
 

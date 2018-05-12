@@ -50,12 +50,12 @@ print(np.mean(list(scores4.values())))
 
 print('-------------------')
 
-scores = np.array(list(zip(list(scores1.values()), list(scores3.values()))))
+scores = np.array(list(zip(list(scores1.values()), list(scores2.values()))))
 print(len(list(filter(lambda x: x[0] - x[1] < 0.01, scores)))/len(scores))
 
 print(len(list(filter(lambda x: x[1] - x[0] > 0.1, scores)))/len(scores))
 
-scores = np.array(list(zip(list(scores2.values()), list(scores4.values()))))
+scores = np.array(list(zip(list(scores3.values()), list(scores4.values()))))
 print(len(list(filter(lambda x: x[0] <= x[1], scores)))/len(scores))
 print('=====================')
 print(len(scores))
@@ -74,3 +74,15 @@ plt.plot(range(len(r2)), r2, label='second_line')
 
 plt.legend()
 plt.savefig('compare.png')
+plt.close()
+
+scores1_mean = [np.mean(list(scores1.values())[:i+1])
+                for i in range(len(scores1))]
+plt.plot(range(len(scores1_mean)), scores1_mean, label='first_line')
+
+scores2_mean = [np.mean(list(scores2.values())[:i+1])
+                for i in range(len(scores2))]
+plt.plot(range(len(scores2_mean)), scores2_mean, label='second_line')
+
+plt.legend()
+plt.savefig('converge.png')
