@@ -36,16 +36,18 @@ settings1 = {
     # 'mean_pos': True,
     # 'manage_symmetry': True,
     'always_net': True,
+    'manage_symmetry': True,
+    # 'noise': True,
 }
 
 
 settings2 = {
     'pre_train': True,
-    'using_net': True,
-    # 'manage_out_of_range': True,
     # 'using_net': True,
+    # 'manage_out_of_range': True,
+    'using_net': True,
     # 'mean_pos': True,
-    # 'manage_symmetry': True,
+    'always_net': True,
     # 'noise': True,
 }
 
@@ -82,8 +84,14 @@ class Master(object):
         # beacon_index = [4, 11, 15]
         print(beacon_index)
         beacons = self.nodes[i][beacon_index]
+        distance = np.array(self.distances[i])
+
+        if settings1.get('noise'):
+            noise = (np.random.random(distance.shape) - 0.5) / (0.5 / NOISE)
+            distance *= (1 + noise)
+
         trainer = Trainer(
-            self.distances[i], self.hops[i], x_range, y_range, beacon_index, beacons, self.nodes[i], i, settings1)
+            distance, self.hops[i], x_range, y_range, beacon_index, beacons, self.nodes[i], i, settings1)
         loss, loss3, nodes = trainer.train()
         # self.result[str(i) + str(beacon_index)] = loss
         fp = str(i)+str(beacon_index)+'.1.json'
@@ -96,7 +104,7 @@ class Master(object):
         distance = self.distances[i]
         if settings2.get('noise'):
             noise = (np.random.random(distance.shape) - 0.5) / (0.5 / NOISE)
-            distance += noise
+            distance *= (1 + noise)
         trainer = Trainer(
             distance, self.hops[i], x_range, y_range, beacon_index, beacons, self.nodes[i], i, settings2)
         loss2, loss4, nodes = trainer.train()

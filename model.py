@@ -241,7 +241,7 @@ class Model(object):
                     self.use_gradient_desecent()
 
             if self.kwargs.get('manage_symmetry'):
-                if self.update_times == timesteps - 1:
+                if self.update_times == timesteps - tuning_timesteps - 5:
                     right = 0
                     wrong = 0
                     for i, node in enumerate(self.nodes):
