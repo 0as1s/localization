@@ -108,8 +108,6 @@ class Trainer(object):
             self.nodes[self.beacon_index[i]] = self.beacons[i]
         # self.plot()
 
-    # 是否可以让n_nodes个model共享一部分权f值, 比如后面的全连接层
-    # 如果要共享权值，怎么解决权值在节点间交换的问题
     def train(self):
         new_nodes = np.zeros((self.n_nodes, 2))
 
@@ -142,7 +140,8 @@ class Trainer(object):
             # print(loss1)
             # print(dis_loss)
             # print("==========")
-            # self.plot()
+            # print(loss1)
+
         self.nodes = new_nodes
         for i in self.models.keys():
             m = self.models[i]

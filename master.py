@@ -4,7 +4,6 @@ import json
 from trainer import Trainer
 from multiprocessing import Pool, cpu_count
 
-
 # batch_size = 20
 x_range = 10.0
 y_range = 10.0
@@ -34,21 +33,23 @@ settings1 = {
     'pre_train': True,
     'using_net': True,
     # 'mean_pos': True,
-    # 'manage_symmetry': True,
-    'always_net': True,
     'manage_symmetry': True,
-    # 'noise': True,
+    'transfer': True,
+    # 'always_net': True,
+    # 'cluster_symmetry': True,
+    'noise': True,
 }
 
 
 settings2 = {
     'pre_train': True,
-    # 'using_net': True,
     # 'manage_out_of_range': True,
-    'using_net': True,
+    # 'using_net': True,
     # 'mean_pos': True,
-    'always_net': True,
-    # 'noise': True,
+    # 'always_net': True,
+    'noise': True,
+    # 'cluster_symmetry': True,
+    'manage_symmetry': True,
 }
 
 
@@ -79,15 +80,19 @@ class Master(object):
     def run(self, i=None, beacon_index=None):
 
         # 每张图传递给每个trainer
-        # i = 16
+        if not i:
+            i = np.random.randint(500, 1000)
         print(i)
-        # beacon_index = [4, 11, 15]
+        if not beacon_index:
+            beacon_index = np.random.choice(20, 3, replace=False)
+            # beacon_index = [4, 11, 15]
         print(beacon_index)
         beacons = self.nodes[i][beacon_index]
         distance = np.array(self.distances[i])
 
         if settings1.get('noise'):
-            noise = (np.random.random(distance.shape) - 0.5) / (0.5 / NOISE)
+            # noise = (np.random.random(distance.shape) - 0.5) / (0.5 / NOISE)
+            noise = np.random.normal(0, 0.05, size=distance.shape)
             distance *= (1 + noise)
 
         trainer = Trainer(
@@ -100,10 +105,12 @@ class Master(object):
         json.dump(loss3, open(fp, 'w'))
         fp = str(i)+str(beacon_index)+'.1.npy'
         np.save(fp, nodes)
+        # print(loss)
 
         distance = self.distances[i]
         if settings2.get('noise'):
-            noise = (np.random.random(distance.shape) - 0.5) / (0.5 / NOISE)
+            # noise = (np.random.random(distance.shape) - 0.5) / (0.5 / NOISE)
+            noise = np.random.normal(0, 0.05, size=distance.shape)
             distance *= (1 + noise)
         trainer = Trainer(
             distance, self.hops[i], x_range, y_range, beacon_index, beacons, self.nodes[i], i, settings2)
@@ -115,6 +122,7 @@ class Master(object):
         json.dump(loss4, open(fp, 'w'))
         fp = str(i)+str(beacon_index)+'.2.npy'
         np.save(fp, nodes)
+        # print(loss2)
 
         return loss, loss2
         # print(loss)
@@ -159,7 +167,5 @@ if __name__ == '__main__':
                     if flag1 and flag2 and flag3 and flag4 and flag5 and flag6:
                         break
                 results.append(p.apply_async(m.run, args=(i, beacon_index)))
-        # for r in results:
-        #     r.wait()
         for r in results:
             print(r.get())

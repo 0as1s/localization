@@ -2,6 +2,7 @@
 import tensorflow as tf
 import numpy as np
 import os
+import pickle
 
 
 LEARNING_RATE = 0.01
@@ -11,23 +12,13 @@ timesteps = 30
 tuning_timesteps = 20
 optimizer = tf.train.AdamOptimizer
 DISTANCE = 4.1
+USED_NODES = 10
 
 config = tf.ConfigProto(device_count={'GPU': 0})
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 
 class Model(object):
-    # 几种传入值的方法：
-    # 需要连接向量的地方用tf.concat
-    # 1、直接平铺输入
-    # 2、每个点先局部过几层局部连接的节点，再全连接
-    # 3、成对输入
-    # 3a、按距离排序后，距离差相近的作为一对
-    # 3b、按距离排序后，距离差相远的作为一对
-    # 4、更多的节点作为一组，组内全连接，组间局部连接
-    # label可以设置为加权的距离或者只有直达的点的距离
-    # 对于预测距离与跳数不符的惩罚
-    # 把loss作为权重
     def __init__(self, nodes, distances, hops, x_range, y_range, beacon_index,
                  nodes_map, pos, i, kwargs):
 
@@ -41,6 +32,14 @@ class Model(object):
         self.nodes = np.array(nodes)
         self.distances = np.array(distances)
         self.hops = np.array(hops)
+
+        for i in range(len(self.distances)):
+            self.distances[i] *= (0.95 ** (self.hops[i] - 1))
+
+        self.used_distances = self.distances[:USED_NODES]
+        self.used_nodes = self.nodes[:USED_NODES]
+        self.used_hops = self.hops[:USED_NODES]
+
         self.x_range = x_range
         self.y_range = y_range
         self.n_nodes = len(self.nodes)
@@ -58,7 +57,7 @@ class Model(object):
     def use_net(self):
 
         global optimizer
-        self.x = tf.placeholder(tf.float32, shape=[1, 3 * self.n_nodes])
+        self.x = tf.placeholder(tf.float32, shape=[1, 3 * USED_NODES])
 
         activation = tf.nn.sigmoid
         if 'activation' in self.kwargs.keys():
@@ -70,16 +69,16 @@ class Model(object):
         dis_to_pred = self.distances[self.target_index]
 
         dense1 = tf.layers.dense(
-            self.x, 3 * self.n_nodes, activation=activation)
+            self.x, 3 * USED_NODES, activation=activation)
 
         # dense2 = tf.layers.dense(
-        #    dense1, 3 * self.n_nodes, activation=activation)
+        #    dense1, 3 * USED_NODES, activation=activation)
 
         # dense3 = tf.layers.dense(
-        #    dense2, 3 * self.n_nodes, activation=activation)
+        #    dense2, 3 * USED_NODES, activation=activation)
 
         dense4 = tf.layers.dense(
-            dense1, 3 * self.n_nodes, activation=activation)
+            dense1, 3 * USED_NODES, activation=activation)
 
         self.self_pos = tf.placeholder(tf.float32, shape=[1, 2])
         dense4_self_pos = tf.concat([dense4, self.self_pos], 1)
@@ -142,6 +141,14 @@ class Model(object):
             self.train_step2 = self.optimizer.minimize(self.loss2)
 
         tf.global_variables_initializer().run(session=self.sess)
+        if self.kwargs.get('transfer'):
+            if len(self.used_distances) == USED_NODES:
+                result = pickle.load(open('variables.pkl', 'rb'))
+                tvars = tf.trainable_variables()
+
+                for var in tvars:
+                    if var in result.keys():
+                        self.sess.run(var.assign(result[var]))
 
     def use_gradient_desecent(self):
         global optimizer
@@ -176,7 +183,10 @@ class Model(object):
         #     tf.square(self.discounted_distances), tf.square(
         #         self.pred_distances), self.weights
         # )
+        if self.update_times == 0:
+            self.optimizer = optimizer(learning_rate=LEARNING_RATE*5)
         self.optimizer = optimizer(learning_rate=LEARNING_RATE*2)
+
         self.train_step = self.optimizer.minimize(self.loss)
         tf.global_variables_initializer().run(session=self.sess)
 
@@ -216,7 +226,7 @@ class Model(object):
 
     def train_and_update(self):
         x_input = np.array([
-            self.nodes[:, 0], self.nodes[:, 1], self.distances,
+            self.used_nodes[:, 0], self.used_nodes[:, 1], self.used_distances,
         ]).flatten()
 
         with self.sess.as_default():
@@ -241,7 +251,7 @@ class Model(object):
                     self.use_gradient_desecent()
 
             if self.kwargs.get('manage_symmetry'):
-                if self.update_times == timesteps - tuning_timesteps - 5:
+                if self.update_times == timesteps - 5:
                     right = 0
                     wrong = 0
                     for i, node in enumerate(self.nodes):
@@ -321,7 +331,8 @@ class Model(object):
                         self.partial_update(
                             self.i, self.origin_pos[0], self.origin_pos[1])
                         x_input = np.array([
-                            self.nodes[:, 0], self.nodes[:, 1], self.distances,
+                            self.used_nodes[:, 0], self.used_nodes[:,
+                                                                   1], self.used_distances,
                         ]).flatten()
 
             else:
@@ -353,7 +364,64 @@ class Model(object):
 
     def find_symmetry(self, x, y):
         index = self.hops[self.hops == 1]
+        if index is None:
+            return x, y
         nodes = self.nodes[index]
         center_x = np.mean(nodes[:, 0])
         center_y = np.mean(nodes[:, 1])
         return center_x + (center_x - x), center_y + (center_y - y)
+
+
+class Tester(object):
+    def __init__(self):
+        self.sess = tf.Session(config=config)
+        self.x = tf.placeholder(tf.float32, shape=[1, 3 * USED_NODES])
+
+        activation = tf.nn.sigmoid
+
+        dense1 = tf.layers.dense(
+            self.x, 3 * USED_NODES, activation=activation)
+
+        # dense2 = tf.layers.dense(
+        #    dense1, 3 * USED_NODES, activation=activation)
+
+        # dense3 = tf.layers.dense(
+        #    dense2, 3 * USED_NODES, activation=activation)
+
+        dense4 = tf.layers.dense(
+            dense1, 3 * USED_NODES, activation=activation)
+
+        self.self_pos = tf.placeholder(tf.float32, shape=[1, 2])
+        dense4_self_pos = tf.concat([dense4, self.self_pos], 1)
+
+        self.pos = tf.layers.dense(dense4_self_pos, 2)
+
+        # saver = tf.train.Saver()
+        # saver.restore(self.sess, 'Model/model.ckpt')
+        # print('load')
+        tf.global_variables_initializer().run(session=self.sess)
+
+        tvars = tf.trainable_variables()
+        tvars_vals = self.sess.run(
+            tvars,
+            feed_dict={
+                self.x: [np.zeros(3*USED_NODES, dtype=np.float)],
+                self.self_pos: [[0.0, 0.0]],
+            }
+        )
+
+        result = {}
+        for var, val in zip(tvars, tvars_vals):
+            result[var.name] = val
+        pickle.dump(result, open('variables.pkl', 'wb'))
+
+        result = pickle.load(open('variables.pkl', 'rb'))
+        tvars = tf.trainable_variables()
+
+        for var in tvars:
+            if var in result.keys():
+                self.sess.run(var.assign(result[var]))
+
+
+if __name__ == '__main__':
+    Tester()
