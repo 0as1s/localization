@@ -27,22 +27,28 @@ NOISE = 0.05
 # noise
 # activation: None, tf.nn.sigmoid, tf.nn.tanh
 # always_net
+# transfer
+# maxout
+# low_decay
 
 settings1 = {
     # 'manage_out_of_range': True,
+    # 'maxout': True,
     'pre_train': True,
     'using_net': True,
     # 'mean_pos': True,
     'manage_symmetry': True,
-    'transfer': True,
+    # 'transfer': True,
     # 'always_net': True,
     # 'cluster_symmetry': True,
     'noise': True,
+    # 'low_decay': True,
 }
 
 
 settings2 = {
     'pre_train': True,
+    # 'using_net': True,
     # 'manage_out_of_range': True,
     # 'using_net': True,
     # 'mean_pos': True,
@@ -91,8 +97,7 @@ class Master(object):
         distance = np.array(self.distances[i])
 
         if settings1.get('noise'):
-            # noise = (np.random.random(distance.shape) - 0.5) / (0.5 / NOISE)
-            noise = np.random.normal(0, 0.05, size=distance.shape)
+            noise = (np.random.random(distance.shape) - 0.5) / (0.5 / NOISE)
             distance *= (1 + noise)
 
         trainer = Trainer(
@@ -109,8 +114,7 @@ class Master(object):
 
         distance = self.distances[i]
         if settings2.get('noise'):
-            # noise = (np.random.random(distance.shape) - 0.5) / (0.5 / NOISE)
-            noise = np.random.normal(0, 0.05, size=distance.shape)
+            noise = (np.random.random(distance.shape) - 0.5) / (0.5 / NOISE)
             distance *= (1 + noise)
         trainer = Trainer(
             distance, self.hops[i], x_range, y_range, beacon_index, beacons, self.nodes[i], i, settings2)
@@ -132,8 +136,7 @@ class Master(object):
 
 if __name__ == '__main__':
     m = Master()
-    # m.run()
-    with Pool(cpu_count() - 1) as p:
+    with Pool(cpu_count() // 2) as p:
         results = []
         for t1 in range(TEST_TIMES):
             i = np.random.randint(len(m.distances))

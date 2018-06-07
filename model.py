@@ -8,8 +8,8 @@ import pickle
 LEARNING_RATE = 0.01
 DISCOUNT = 0.95
 EPOCH = 20
-timesteps = 30
-tuning_timesteps = 20
+timesteps = 15
+tuning_timesteps = 5
 optimizer = tf.train.AdamOptimizer
 DISTANCE = 4.1
 USED_NODES = 10
@@ -68,20 +68,25 @@ class Model(object):
 
         dis_to_pred = self.distances[self.target_index]
 
-        dense1 = tf.layers.dense(
-            self.x, 3 * USED_NODES, activation=activation)
-
-        # dense2 = tf.layers.dense(
-        #    dense1, 3 * USED_NODES, activation=activation)
-
-        # dense3 = tf.layers.dense(
-        #    dense2, 3 * USED_NODES, activation=activation)
-
-        dense4 = tf.layers.dense(
-            dense1, 3 * USED_NODES, activation=activation)
-
         self.self_pos = tf.placeholder(tf.float32, shape=[1, 2])
-        dense4_self_pos = tf.concat([dense4, self.self_pos], 1)
+
+        if self.kwargs.get('maxout'):
+
+            dense1 = tf.layers.dense(
+                self.x, 3 * USED_NODES)
+            maxout1 = tf.contrib.layers.maxout(dense1, 3 * USED_NODES)
+            dense4 = tf.layers.dense(
+                maxout1, 3 * USED_NODES)
+            maxout2 = tf.contrib.layers.maxout(dense4, 3 * USED_NODES)
+            dense4_self_pos = tf.concat([maxout2, self.self_pos], 1)
+
+        else:
+
+            dense1 = tf.layers.dense(
+                self.x, 3 * USED_NODES, activation=activation)
+            dense4 = tf.layers.dense(
+                dense1, 3 * USED_NODES, activation=activation)
+            dense4_self_pos = tf.concat([dense4, self.self_pos], 1)
 
         self.pos = tf.layers.dense(dense4_self_pos, 2)
 
@@ -102,16 +107,15 @@ class Model(object):
             discounted_distances, pred_distances, weights
         )
 
-        # if self.kwargs.get('l1_regular'):
-        #     l1_regularizer = tf.contrib.layers.l1_regularizer(
-        #         scale=0.005, scope=None
-        #     )
-        #     weights = tf.trainable_variables()  # all vars of your graph
-        #     regularization_penalty = tf.contrib.layers.apply_regularization(
-        #         l1_regularizer, weights)
+        if self.kwargs.get('l1_regular'):
+            l1_regularizer = tf.contrib.layers.l1_regularizer(
+                scale=0.005, scope=None
+            )
+            weights = tf.trainable_variables()  # all vars of your graph
+            regularization_penalty = tf.contrib.layers.apply_regularization(
+                l1_regularizer, weights)
 
-        #     # this loss needs to be minimized
-        #     self.loss = self.loss + regularization_penalty
+            self.loss = self.loss + regularization_penalty
 
         self.optimizer = optimizer(learning_rate=LEARNING_RATE)
         self.train_step = self.optimizer.minimize(self.loss)
@@ -183,14 +187,18 @@ class Model(object):
         #     tf.square(self.discounted_distances), tf.square(
         #         self.pred_distances), self.weights
         # )
-        if self.update_times == 0:
-            self.optimizer = optimizer(learning_rate=LEARNING_RATE*5)
         self.optimizer = optimizer(learning_rate=LEARNING_RATE*2)
 
         self.train_step = self.optimizer.minimize(self.loss)
         tf.global_variables_initializer().run(session=self.sess)
 
     def weighting_distances(self, only_near=False):
+        if self.kwargs.get('low_decay'):
+            dis_decay = 0.2
+            beacon_decay = 0
+        else:
+            dis_decay = 0.4
+            beacon_decay = 0.2
         goal_weights = []
         index = []
 
@@ -202,21 +210,17 @@ class Model(object):
         if not only_near:
             for i, d in enumerate(self.distances):
                 if self.hops[i] in hops_limit:
-                    goal_weights.append(0.4**(self.hops[i] - 1))
+                    goal_weights.append((1-dis_decay)**(self.hops[i] - 1))
                     index.append(i)
             for i in self.beacon_index:
-                goal_weights.append(0.8**(self.hops[i] - 1))
+                goal_weights.append((1-beacon_decay)**(self.hops[i] - 1))
                 index.append(i)
 
         else:
             for i, d in enumerate(self.distances):
                 if self.hops[i] in (1, ):
-                    goal_weights.append(0.4**(self.hops[i] - 1))
+                    goal_weights.append((1-beacon_decay)**(self.hops[i] - 1))
                     index.append(i)
-            # if not self.using_net:
-            #     for i in self.beacon_index:
-            #         goal_weights.append(0.6**(self.hops[i] - 1))
-            #         index.append(i)
 
         goal_weights = list(map(lambda x: x / sum(goal_weights), goal_weights))
         discounts = []
@@ -226,7 +230,8 @@ class Model(object):
 
     def train_and_update(self):
         x_input = np.array([
-            self.used_nodes[:, 0], self.used_nodes[:, 1], self.used_distances,
+            self.used_nodes[:, 0], self.used_nodes[:,
+                                                   1], self.used_distances,
         ]).flatten()
 
         with self.sess.as_default():
