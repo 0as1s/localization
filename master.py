@@ -16,33 +16,16 @@ NOISE = 0.05
 
 # setting:
 # using_net
-# manage_out_of_range
 # pre_train
 # only_near
-# using_net
-# cluster_symmetry
-# manage_symmetry
-# l1_regular
 # mean_pos
 # noise
 # activation: None, tf.nn.sigmoid, tf.nn.tanh
-# always_net
-# transfer
-# maxout
 # low_decay
 
 settings1 = {
-    # 'manage_out_of_range': True,
-    # 'maxout': True,
     'pre_train': True,
-    'using_net': True,
-    # 'mean_pos': True,
-    'manage_symmetry': True,
-    # 'transfer': True,
-    # 'always_net': True,
-    # 'cluster_symmetry': True,
     'noise': True,
-    # 'low_decay': True,
 }
 
 
@@ -55,7 +38,6 @@ settings2 = {
     # 'always_net': True,
     'noise': True,
     # 'cluster_symmetry': True,
-    'manage_symmetry': True,
 }
 
 
